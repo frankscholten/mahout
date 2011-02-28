@@ -101,7 +101,7 @@ public class DisplayKMeans extends DisplayClustering {
                                                    Path output,
                                                    DistanceMeasure measure,
                                                    int maxIterations)
-    throws IOException, InterruptedException, ClassNotFoundException {
+          throws IOException, InterruptedException, ClassNotFoundException, IllegalAccessException, InstantiationException {
     Path clusters = RandomSeedGenerator.buildRandom(conf, samples, new Path(
         output, "clusters-0"), 3, measure);
     double distanceThreshold = 0.001;

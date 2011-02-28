@@ -24,7 +24,7 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.mahout.clustering.kmeans.KMeansConfigKeys;
+import org.apache.mahout.clustering.kmeans.KMeansConfiguration;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.math.VectorWritable;
 
@@ -46,7 +46,7 @@ public class MeanShiftCanopyCreatorMapper extends Mapper<WritableComparable<?>, 
   @Override
   protected void setup(Context context) throws IOException, InterruptedException {
     super.setup(context);
-    String measureClass = context.getConfiguration().get(KMeansConfigKeys.DISTANCE_MEASURE_KEY);
+    String measureClass = context.getConfiguration().get(KMeansConfiguration.DISTANCE_MEASURE_KEY);
     ClassLoader ccl = Thread.currentThread().getContextClassLoader();
     try {
       measure = ccl.loadClass(measureClass).asSubclass(DistanceMeasure.class).newInstance();

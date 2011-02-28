@@ -135,7 +135,7 @@ public final class Job extends AbstractJob {
    */
   public void run(Configuration conf, Path input, Path output,
       DistanceMeasure measure, int k, double convergenceDelta, int maxIterations)
-      throws IOException, InterruptedException, ClassNotFoundException {
+          throws IOException, InterruptedException, ClassNotFoundException, IllegalAccessException, InstantiationException {
     Path directoryContainingConvertedInput = new Path(output,
         DIRECTORY_CONTAINING_CONVERTED_INPUT);
     log.info("Preparing Input");

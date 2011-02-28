@@ -16,11 +16,6 @@
  */
 package org.apache.mahout.clustering.kmeans;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
@@ -28,6 +23,10 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.mahout.clustering.ClusterObservations;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.math.VectorWritable;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 
 public class KMeansMapper extends Mapper<WritableComparable<?>, VectorWritable, Text, ClusterObservations> {
 
@@ -37,35 +36,27 @@ public class KMeansMapper extends Mapper<WritableComparable<?>, VectorWritable, 
 
   @Override
   protected void map(WritableComparable<?> key, VectorWritable point, Context context)
-    throws IOException, InterruptedException {
+      throws IOException, InterruptedException {
     this.clusterer.emitPointToNearestCluster(point.get(), this.clusters, context);
   }
 
   @Override
   protected void setup(Context context) throws IOException, InterruptedException {
     super.setup(context);
-    Configuration conf = context.getConfiguration();
-    try {
-      ClassLoader ccl = Thread.currentThread().getContextClassLoader();
-      DistanceMeasure measure = ccl.loadClass(conf.get(KMeansConfigKeys.DISTANCE_MEASURE_KEY))
-          .asSubclass(DistanceMeasure.class).newInstance();
-      measure.configure(conf);
 
-      this.clusterer = new KMeansClusterer(measure);
+    KMeansConfiguration kMeansConfiguration = new KMeansConfiguration().getFromConfiguration(context.getConfiguration());
 
-      String clusterPath = conf.get(KMeansConfigKeys.CLUSTER_PATH_KEY);
-      if (clusterPath != null && clusterPath.length() > 0) {
-        KMeansUtil.configureWithClusterInfo(conf, new Path(clusterPath), clusters);
-        if (clusters.isEmpty()) {
-          throw new IllegalStateException("No clusters found. Check your -c path.");
-        }
+    DistanceMeasure measure = kMeansConfiguration.getDistanceMeasure();
+    measure.configure(context.getConfiguration());
+
+    this.clusterer = new KMeansClusterer(measure);
+
+    Path clusterPath = kMeansConfiguration.getInputClusters();
+    if ((clusterPath != null) && (clusterPath.toString().length() > 0)) {
+      KMeansUtil.configureWithClusterInfo(context.getConfiguration(), clusterPath, clusters);
+      if (clusters.isEmpty()) {
+        throw new IllegalStateException("No clusters found. Check your -c path.");
       }
-    } catch (ClassNotFoundException e) {
-      throw new IllegalStateException(e);
-    } catch (IllegalAccessException e) {
-      throw new IllegalStateException(e);
-    } catch (InstantiationException e) {
-      throw new IllegalStateException(e);
     }
   }
 

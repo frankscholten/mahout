@@ -29,6 +29,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.mahout.clustering.Cluster;
 import org.apache.mahout.clustering.WeightedVectorWritable;
 import org.apache.mahout.common.iterator.sequencefile.PathFilters;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileValueIterable;
@@ -60,10 +61,13 @@ public class ClusterMapper
   protected void setup(Context context) throws IOException, InterruptedException {
     super.setup(context);
 
-    canopyClusterer = new CanopyClusterer(context.getConfiguration());
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration().getFromConfiguration(context.getConfiguration());
+
+    canopyClusterer = new CanopyClusterer(canopyConfiguration);
 
     Configuration conf = context.getConfiguration();
-    String clustersIn = conf.get(CanopyConfigKeys.CANOPY_PATH_KEY);
+
+    String clustersIn = canopyConfiguration.getCanopyOutputPath().toString();
 
     // filter out the files
     if (clustersIn != null && clustersIn.length() > 0) {

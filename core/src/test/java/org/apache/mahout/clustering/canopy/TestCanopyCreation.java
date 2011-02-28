@@ -183,14 +183,17 @@ public final class TestCanopyCreation extends MahoutTestCase {
   @Test
   public void testCanopyMapperManhattan() throws Exception {
     CanopyMapper mapper = new CanopyMapper();
-    Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY, manhattanDistanceMeasure
-        .getClass().getName());
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration(new Configuration(), new Path("input"), new Path("output"));
+    canopyConfiguration.setT1(3.1);
+    canopyConfiguration.setT2(2.1);
+    canopyConfiguration.setDistanceMeasure(manhattanDistanceMeasure);
+
+    Configuration serializedConfiguration = canopyConfiguration.serializeInConfiguration();
+
     DummyRecordWriter<Text, VectorWritable> writer = new DummyRecordWriter<Text, VectorWritable>();
     Mapper<WritableComparable<?>, VectorWritable, Text, VectorWritable>.Context context = DummyRecordWriter
-        .build(mapper, conf, writer);
+        .build(mapper, serializedConfiguration, writer);
     mapper.setup(context);
 
     List<VectorWritable> points = getPointsWritable();
@@ -218,14 +221,17 @@ public final class TestCanopyCreation extends MahoutTestCase {
   @Test
   public void testCanopyMapperEuclidean() throws Exception {
     CanopyMapper mapper = new CanopyMapper();
-    Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY, euclideanDistanceMeasure
-        .getClass().getName());
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration(new Configuration(), new Path("input"), new Path("output"));
+    canopyConfiguration.setT1(3.1);
+    canopyConfiguration.setT2(2.1);
+    canopyConfiguration.setDistanceMeasure(euclideanDistanceMeasure);
+
+    Configuration configuration = canopyConfiguration.serializeInConfiguration();
+
     DummyRecordWriter<Text, VectorWritable> writer = new DummyRecordWriter<Text, VectorWritable>();
     Mapper<WritableComparable<?>, VectorWritable, Text, VectorWritable>.Context context = DummyRecordWriter
-        .build(mapper, conf, writer);
+        .build(mapper, configuration, writer);
     mapper.setup(context);
 
     List<VectorWritable> points = getPointsWritable();
@@ -253,14 +259,17 @@ public final class TestCanopyCreation extends MahoutTestCase {
   @Test
   public void testCanopyReducerManhattan() throws Exception {
     CanopyReducer reducer = new CanopyReducer();
-    Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY,
-        "org.apache.mahout.common.distance.ManhattanDistanceMeasure");
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration(new Configuration(), new Path("input"), new Path("output"));
+    canopyConfiguration.setT1(3.1);
+    canopyConfiguration.setT2(2.1);
+    canopyConfiguration.setDistanceMeasure(manhattanDistanceMeasure);
+
+    Configuration configuration = canopyConfiguration.serializeInConfiguration();
+
     DummyRecordWriter<Text, Canopy> writer = new DummyRecordWriter<Text, Canopy>();
     Reducer<Text, VectorWritable, Text, Canopy>.Context context = DummyRecordWriter
-        .build(reducer, conf, writer, Text.class, VectorWritable.class);
+        .build(reducer, configuration, writer, Text.class, VectorWritable.class);
     reducer.setup(context);
 
     List<VectorWritable> points = getPointsWritable();
@@ -286,14 +295,17 @@ public final class TestCanopyCreation extends MahoutTestCase {
   @Test
   public void testCanopyReducerEuclidean() throws Exception {
     CanopyReducer reducer = new CanopyReducer();
-    Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY,
-        "org.apache.mahout.common.distance.EuclideanDistanceMeasure");
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration(new Configuration(), new Path("input"), new Path("output"));
+    canopyConfiguration.setT1(3.1);
+    canopyConfiguration.setT2(2.1);
+    canopyConfiguration.setDistanceMeasure(euclideanDistanceMeasure);
+
+    Configuration configuration = canopyConfiguration.serializeInConfiguration();
+
     DummyRecordWriter<Text, Canopy> writer = new DummyRecordWriter<Text, Canopy>();
     Reducer<Text, VectorWritable, Text, Canopy>.Context context = DummyRecordWriter
-        .build(reducer, conf, writer, Text.class, VectorWritable.class);
+        .build(reducer, configuration, writer, Text.class, VectorWritable.class);
     reducer.setup(context);
 
     List<VectorWritable> points = getPointsWritable();
@@ -392,16 +404,13 @@ public final class TestCanopyCreation extends MahoutTestCase {
   @Test
   public void testClusterMapperManhattan() throws Exception {
     ClusterMapper mapper = new ClusterMapper();
-    Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY,
-        "org.apache.mahout.common.distance.ManhattanDistanceMeasure");
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
-    DummyRecordWriter<IntWritable, WeightedVectorWritable> writer =
-        new DummyRecordWriter<IntWritable, WeightedVectorWritable>();
-    Mapper<WritableComparable<?>, VectorWritable, IntWritable, WeightedVectorWritable>.Context context =
-        DummyRecordWriter.build(mapper, conf, writer);
-    mapper.setup(context);
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration(new Configuration(), new Path("input"), new Path("output"));
+    canopyConfiguration.setT1(3.1);
+    canopyConfiguration.setT2(2.1);
+    canopyConfiguration.setDistanceMeasure(manhattanDistanceMeasure);
+
+    Configuration configuration = canopyConfiguration.serializeInConfiguration();
 
     Collection<Canopy> canopies = new ArrayList<Canopy>();
     int nextCanopyId = 0;
@@ -409,7 +418,14 @@ public final class TestCanopyCreation extends MahoutTestCase {
       canopies.add(new Canopy(centroid, nextCanopyId++,
           manhattanDistanceMeasure));
     }
-    mapper.config(canopies);
+
+    DummyRecordWriter<IntWritable, WeightedVectorWritable> writer = new DummyRecordWriter<IntWritable, WeightedVectorWritable>();
+    Mapper<WritableComparable<?>, VectorWritable, IntWritable, WeightedVectorWritable>.Context context = DummyRecordWriter
+        .build(mapper, configuration, writer);
+
+    setField(mapper, "canopyClusterer", new CanopyClusterer(canopyConfiguration));
+    setField(mapper, "canopies", canopies);
+
     List<VectorWritable> points = getPointsWritable();
     // map the data
     for (VectorWritable point : points) {
@@ -436,23 +452,30 @@ public final class TestCanopyCreation extends MahoutTestCase {
   @Test
   public void testClusterMapperEuclidean() throws Exception {
     ClusterMapper mapper = new ClusterMapper();
-    Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY,
-        "org.apache.mahout.common.distance.EuclideanDistanceMeasure");
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+
+    Configuration configuration = new Configuration();
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration(configuration, new Path("input"), new Path("output"));
+    canopyConfiguration.setT1(3.1);
+    canopyConfiguration.setT2(2.1);
+    canopyConfiguration.setDistanceMeasure(euclideanDistanceMeasure);
+
+    Configuration serializedConfiguration = canopyConfiguration.serializeInConfiguration();
+
     DummyRecordWriter<IntWritable, WeightedVectorWritable> writer = new DummyRecordWriter<IntWritable, WeightedVectorWritable>();
     Mapper<WritableComparable<?>, VectorWritable, IntWritable, WeightedVectorWritable>.Context context = DummyRecordWriter
-        .build(mapper, conf, writer);
-    mapper.setup(context);
-
+        .build(mapper, serializedConfiguration, writer);
+    
     Collection<Canopy> canopies = new ArrayList<Canopy>();
     int nextCanopyId = 0;
     for (Vector centroid : euclideanCentroids) {
       canopies.add(new Canopy(centroid, nextCanopyId++,
           euclideanDistanceMeasure));
     }
-    mapper.config(canopies);
+
+    setField(mapper, "canopyClusterer", new CanopyClusterer(canopyConfiguration));
+    setField(mapper, "canopies", canopies);
+
     List<VectorWritable> points = getPointsWritable();
     // map the data
     for (VectorWritable point : points) {
@@ -636,15 +659,25 @@ public final class TestCanopyCreation extends MahoutTestCase {
   public void testCanopyReducerT3T4Configuration() throws Exception {
     CanopyReducer reducer = new CanopyReducer();
     Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY,
+    conf.set(CanopyConfiguration.DISTANCE_MEASURE_KEY,
         "org.apache.mahout.common.distance.ManhattanDistanceMeasure");
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
-    conf.set(CanopyConfigKeys.T3_KEY, String.valueOf(1.1));
-    conf.set(CanopyConfigKeys.T4_KEY, String.valueOf(0.1));
+    conf.set(CanopyConfiguration.T1_KEY, String.valueOf(3.1));
+    conf.set(CanopyConfiguration.T2_KEY, String.valueOf(2.1));
+    conf.set(CanopyConfiguration.T3_KEY, String.valueOf(1.1));
+    conf.set(CanopyConfiguration.T4_KEY, String.valueOf(0.1));
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration(conf, new Path("input"), new Path("output"));
+    canopyConfiguration.setDistanceMeasure(manhattanDistanceMeasure);
+    canopyConfiguration.setT1(3.1);
+    canopyConfiguration.setT2(2.1);
+    canopyConfiguration.setT3(1.1);
+    canopyConfiguration.setT4(0.1);
+
+    Configuration serializedConfiguration = canopyConfiguration.serializeInConfiguration();
+
     DummyRecordWriter<Text, Canopy> writer = new DummyRecordWriter<Text, Canopy>();
     Reducer<Text, VectorWritable, Text, Canopy>.Context context = DummyRecordWriter
-        .build(reducer, conf, writer, Text.class, VectorWritable.class);
+        .build(reducer, serializedConfiguration, writer, Text.class, VectorWritable.class);
     reducer.setup(context);
     assertEquals(1.1, reducer.getCanopyClusterer().getT1(), EPSILON);
     assertEquals(0.1, reducer.getCanopyClusterer().getT2(), EPSILON);

@@ -41,7 +41,10 @@ class CanopyMapper extends Mapper<WritableComparable<?>, VectorWritable, Text, V
   @Override
   protected void setup(Context context) throws IOException, InterruptedException {
     super.setup(context);
-    canopyClusterer = new CanopyClusterer(context.getConfiguration());
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration().getFromConfiguration(context.getConfiguration());
+
+    canopyClusterer = new CanopyClusterer(canopyConfiguration);
   }
 
   @Override

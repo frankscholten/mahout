@@ -53,7 +53,10 @@ public class CanopyReducer extends Reducer<Text, VectorWritable, Text, Canopy> {
   protected void setup(Context context) throws IOException,
       InterruptedException {
     super.setup(context);
-    canopyClusterer = new CanopyClusterer(context.getConfiguration());
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration().getFromConfiguration(context.getConfiguration());
+
+    canopyClusterer = new CanopyClusterer(canopyConfiguration);
     canopyClusterer.useT3T4();
   }
 

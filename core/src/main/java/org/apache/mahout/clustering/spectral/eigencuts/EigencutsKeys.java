@@ -18,7 +18,7 @@
 package org.apache.mahout.clustering.spectral.eigencuts;
 
 /**
- * Configuration keys for the Eigencuts algorithm (analogous to KMeansConfigKeys)
+ * Configuration keys for the Eigencuts algorithm
  */
 public interface EigencutsKeys {
 

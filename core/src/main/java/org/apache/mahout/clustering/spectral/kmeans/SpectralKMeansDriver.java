@@ -115,7 +115,7 @@ public class SpectralKMeansDriver extends AbstractJob {
                          DistanceMeasure measure,
                          double convergenceDelta,
                          int maxIterations)
-    throws IOException, InterruptedException, ClassNotFoundException {
+      throws IOException, InterruptedException, ClassNotFoundException, IllegalAccessException, InstantiationException {
     // create a few new Paths for temp files and transformations
     Path outputCalc = new Path(output, "calculations");
     Path outputTmp = new Path(output, "temporary");

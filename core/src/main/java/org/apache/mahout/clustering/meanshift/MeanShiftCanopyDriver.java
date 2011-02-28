@@ -39,7 +39,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.mahout.clustering.AbstractCluster;
 import org.apache.mahout.clustering.Cluster;
 import org.apache.mahout.clustering.WeightedVectorWritable;
-import org.apache.mahout.clustering.kmeans.KMeansConfigKeys;
+import org.apache.mahout.clustering.kmeans.KMeansConfiguration;
 import org.apache.mahout.common.AbstractJob;
 import org.apache.mahout.common.HadoopUtil;
 import org.apache.mahout.common.Pair;
@@ -222,7 +222,7 @@ public class MeanShiftCanopyDriver extends AbstractJob {
    */
   private static void createCanopyFromVectorsMR(Configuration conf, Path input, Path output, DistanceMeasure measure)
     throws IOException, InterruptedException, ClassNotFoundException {
-    conf.set(KMeansConfigKeys.DISTANCE_MEASURE_KEY, measure.getClass().getName());
+    conf.set(KMeansConfiguration.DISTANCE_MEASURE_KEY, measure.getClass().getName());
     Job job = new Job(conf);
     job.setJarByClass(MeanShiftCanopyDriver.class);
     job.setOutputKeyClass(Text.class);
