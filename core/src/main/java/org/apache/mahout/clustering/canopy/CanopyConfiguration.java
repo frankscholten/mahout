@@ -72,7 +72,7 @@ public class CanopyConfiguration {
   }
 
   public void setInputPath(Path input) {
-    Preconditions.checkArgument(input != null, "Input path cannot be null");
+    Preconditions.checkNotNull(input, "Input path cannot be null");
     this.configuration.set(INPUT_KEY, input.toString());
   }
 
@@ -85,7 +85,7 @@ public class CanopyConfiguration {
   }
 
   private void setOutputBase(Path outputBase) {
-    Preconditions.checkArgument(outputBase != null, "Output base path cannot be null");
+    Preconditions.checkNotNull(outputBase, "Output base path cannot be null");
     this.configuration.set(OUTPUT_BASE_KEY, outputBase.toString());
   }
 
@@ -94,7 +94,7 @@ public class CanopyConfiguration {
   }
 
   public void setDistanceMeasure(DistanceMeasure distanceMeasure) {
-    Preconditions.checkArgument(distanceMeasure != null, "Distance measure cannot be null");
+    Preconditions.checkNotNull(distanceMeasure, "Distance measure cannot be null");
     this.configuration.set(DISTANCE_MEASURE_KEY, distanceMeasure.getClass().getName());
   }
 
