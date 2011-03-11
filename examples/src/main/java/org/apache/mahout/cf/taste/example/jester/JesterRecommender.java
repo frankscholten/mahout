@@ -78,7 +78,7 @@ public final class JesterRecommender implements Recommender {
   
   @Override
   public String toString() {
-    return "BookCrossingRecommender[recommender:" + recommender + ']';
+    return "JesterRecommender[recommender:" + recommender + ']';
   }
   
 }
