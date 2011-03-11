@@ -57,15 +57,15 @@ public class KMeansReducer extends Reducer<Text, ClusterObservations, Text, Clus
     Configuration conf = context.getConfiguration();
     try {
       ClassLoader ccl = Thread.currentThread().getContextClassLoader();
-      DistanceMeasure measure = ccl.loadClass(conf.get(KMeansConfigKeys.DISTANCE_MEASURE_KEY))
+      DistanceMeasure measure = ccl.loadClass(conf.get(KMeansConfiguration.DISTANCE_MEASURE_KEY))
           .asSubclass(DistanceMeasure.class).newInstance();
       measure.configure(conf);
 
-      this.convergenceDelta = Double.parseDouble(conf.get(KMeansConfigKeys.CLUSTER_CONVERGENCE_KEY));
+      this.convergenceDelta = Double.parseDouble(conf.get(KMeansConfiguration.CLUSTER_CONVERGENCE_KEY));
       this.clusterer = new KMeansClusterer(measure);
       this.clusterMap = new HashMap<String, Cluster>();
 
-      String path = conf.get(KMeansConfigKeys.CLUSTER_PATH_KEY);
+      String path = conf.get(KMeansConfiguration.CLUSTER_PATH_KEY);
       if (path.length() > 0) {
         Collection<Cluster> clusters = new ArrayList<Cluster>();
         KMeansUtil.configureWithClusterInfo(new Path(path), clusters);

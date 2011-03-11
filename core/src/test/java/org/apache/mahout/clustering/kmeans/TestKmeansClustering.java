@@ -168,9 +168,9 @@ public final class TestKmeansClustering extends MahoutTestCase {
     KMeansMapper mapper = new KMeansMapper();
     EuclideanDistanceMeasure measure = new EuclideanDistanceMeasure();
     Configuration conf = new Configuration();
-    conf.set(KMeansConfigKeys.DISTANCE_MEASURE_KEY, measure.getClass().getName());
-    conf.set(KMeansConfigKeys.CLUSTER_CONVERGENCE_KEY, "0.001");
-    conf.set(KMeansConfigKeys.CLUSTER_PATH_KEY, "");
+    conf.set(KMeansConfiguration.DISTANCE_MEASURE_KEY, measure.getClass().getName());
+    conf.set(KMeansConfiguration.CLUSTER_CONVERGENCE_KEY, "0.001");
+    conf.set(KMeansConfiguration.CLUSTER_PATH_KEY, "");
     List<VectorWritable> points = getPointsWritable(REFERENCE);
     for (int k = 0; k < points.size(); k++) {
       // pick k initial cluster centers at random
@@ -215,9 +215,9 @@ public final class TestKmeansClustering extends MahoutTestCase {
     KMeansMapper mapper = new KMeansMapper();
     EuclideanDistanceMeasure measure = new EuclideanDistanceMeasure();
     Configuration conf = new Configuration();
-    conf.set(KMeansConfigKeys.DISTANCE_MEASURE_KEY, measure.getClass().getName());
-    conf.set(KMeansConfigKeys.CLUSTER_CONVERGENCE_KEY, "0.001");
-    conf.set(KMeansConfigKeys.CLUSTER_PATH_KEY, "");
+    conf.set(KMeansConfiguration.DISTANCE_MEASURE_KEY, measure.getClass().getName());
+    conf.set(KMeansConfiguration.CLUSTER_CONVERGENCE_KEY, "0.001");
+    conf.set(KMeansConfiguration.CLUSTER_PATH_KEY, "");
     List<VectorWritable> points = getPointsWritable(REFERENCE);
     for (int k = 0; k < points.size(); k++) {
       // pick k initial cluster centers at random
@@ -274,9 +274,9 @@ public final class TestKmeansClustering extends MahoutTestCase {
     KMeansMapper mapper = new KMeansMapper();
     EuclideanDistanceMeasure measure = new EuclideanDistanceMeasure();
     Configuration conf = new Configuration();
-    conf.set(KMeansConfigKeys.DISTANCE_MEASURE_KEY, measure.getClass().getName());
-    conf.set(KMeansConfigKeys.CLUSTER_CONVERGENCE_KEY, "0.001");
-    conf.set(KMeansConfigKeys.CLUSTER_PATH_KEY, "");
+    conf.set(KMeansConfiguration.DISTANCE_MEASURE_KEY, measure.getClass().getName());
+    conf.set(KMeansConfiguration.CLUSTER_CONVERGENCE_KEY, "0.001");
+    conf.set(KMeansConfiguration.CLUSTER_PATH_KEY, "");
     List<VectorWritable> points = getPointsWritable(REFERENCE);
     for (int k = 0; k < points.size(); k++) {
       System.out.println("K = " + k);

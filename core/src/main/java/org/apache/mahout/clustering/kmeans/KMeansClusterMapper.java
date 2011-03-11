@@ -53,11 +53,11 @@ public class KMeansClusterMapper extends Mapper<WritableComparable<?>,VectorWrit
     Configuration conf = context.getConfiguration();
     try {
       ClassLoader ccl = Thread.currentThread().getContextClassLoader();
-      DistanceMeasure measure = ccl.loadClass(conf.get(KMeansConfigKeys.DISTANCE_MEASURE_KEY))
+      DistanceMeasure measure = ccl.loadClass(conf.get(KMeansConfiguration.DISTANCE_MEASURE_KEY))
           .asSubclass(DistanceMeasure.class).newInstance();
       measure.configure(conf);
       
-      String clusterPath = conf.get(KMeansConfigKeys.CLUSTER_PATH_KEY);
+      String clusterPath = conf.get(KMeansConfiguration.CLUSTER_PATH_KEY);
       if ((clusterPath != null) && (clusterPath.length() > 0)) {
         KMeansUtil.configureWithClusterInfo(new Path(clusterPath), clusters);
         if (clusters.isEmpty()) {

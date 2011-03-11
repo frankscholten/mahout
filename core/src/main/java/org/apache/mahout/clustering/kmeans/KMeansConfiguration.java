@@ -139,4 +139,8 @@ public class KMeansConfiguration {
   public Path getPointsOutput() {
     return new Path(getOutput().getParent(), AbstractCluster.CLUSTERED_POINTS_DIR);
   }
+
+  public Configuration asSerializedConfig() {
+    throw new UnsupportedOperationException("not yet implemented");
+  }
 }
