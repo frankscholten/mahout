@@ -33,6 +33,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.mahout.clustering.Cluster;
 import org.apache.mahout.clustering.WeightedVectorWritable;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
@@ -66,7 +67,7 @@ public class ClusterMapper extends Mapper<WritableComparable<?>, VectorWritable,
     canopyClusterer = new CanopyClusterer(context.getConfiguration());
 
     Configuration conf = context.getConfiguration();
-    String clustersIn = conf.get(CanopyConfigKeys.CANOPY_PATH_KEY);
+    String clustersIn = conf.get(CanopyConfiguration.CANOPY_PATH_KEY);
 
     // filter out the files
     PathFilter clusterFileFilter = new PathFilter() {

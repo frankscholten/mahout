@@ -26,7 +26,8 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.mahout.clustering.Cluster;
-import org.apache.mahout.clustering.canopy.CanopyDriver;
+import org.apache.mahout.clustering.canopy.CanopyConfiguration;
+import org.apache.mahout.clustering.canopy.CanopySequentialAlgorithm;
 import org.apache.mahout.common.HadoopUtil;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.ManhattanDistanceMeasure;
@@ -73,23 +74,15 @@ class DisplayCanopy extends DisplayClustering {
     RandomUtils.useTestSeed();
     generateSamples();
     writeSampleData(samples);
-    //boolean b = true;
-    //if (b) {
-    CanopyDriver.buildClusters(new Configuration(), samples, output, new ManhattanDistanceMeasure(), T1, T2, true);
+
+    CanopyConfiguration canopyConfiguration = new CanopyConfiguration(new Configuration(), samples, output);
+    canopyConfiguration.setT1(T1);
+    canopyConfiguration.setT2(T1);
+    canopyConfiguration.setDistanceMeasure(new ManhattanDistanceMeasure());
+
+    new CanopySequentialAlgorithm().run(canopyConfiguration);
+
     loadClusters(output);
-    //} else {
-    //  List<Vector> points = new ArrayList<Vector>();
-    //  for (VectorWritable sample : SAMPLE_DATA) {
-    //    points.add(sample.get());
-    //  }
-    //  List<Canopy> canopies = CanopyClusterer.createCanopies(points, new ManhattanDistanceMeasure(), T1, T2);
-    //  CanopyClusterer.updateCentroids(canopies);
-    //  List<Cluster> clusters = new ArrayList<Cluster>();
-    //  for (Canopy canopy : canopies) {
-    //    clusters.add(canopy);
-    //  }
-    //  CLUSTERS.add(clusters);
-    //}
 
     new DisplayCanopy();
   }

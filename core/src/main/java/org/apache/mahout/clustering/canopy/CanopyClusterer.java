@@ -66,7 +66,7 @@ public class CanopyClusterer {
   public void configure(Configuration configuration) {
     try {
       ClassLoader ccl = Thread.currentThread().getContextClassLoader();
-      measure = ccl.loadClass(configuration.get(CanopyConfigKeys.DISTANCE_MEASURE_KEY))
+      measure = ccl.loadClass(configuration.get(CanopyConfiguration.DISTANCE_MEASURE_KEY))
           .asSubclass(DistanceMeasure.class).newInstance();
       measure.configure(configuration);
     } catch (ClassNotFoundException e) {
@@ -76,8 +76,8 @@ public class CanopyClusterer {
     } catch (InstantiationException e) {
       throw new IllegalStateException(e);
     }
-    t1 = Double.parseDouble(configuration.get(CanopyConfigKeys.T1_KEY));
-    t2 = Double.parseDouble(configuration.get(CanopyConfigKeys.T2_KEY));
+    t1 = Double.parseDouble(configuration.get(CanopyConfiguration.T1_KEY));
+    t2 = Double.parseDouble(configuration.get(CanopyConfiguration.T2_KEY));
     nextCanopyId = 0;
   }
 
@@ -219,14 +219,14 @@ public class CanopyClusterer {
 
   /**
    * Iterate through the canopies, resetting their center to their centroids
-   * 
+   *
    * @param canopies
    *          a List<Canopy>
    */
   public static void updateCentroids(Iterable<Canopy> canopies) {
     for (Canopy canopy : canopies) {
       canopy.computeParameters();
-    }
+}
   }
 
 }

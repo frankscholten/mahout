@@ -167,9 +167,9 @@ public final class TestCanopyCreation extends MahoutTestCase {
   public void testCanopyMapperManhattan() throws Exception {
     CanopyMapper mapper = new CanopyMapper();
     Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY, manhattanDistanceMeasure.getClass().getName());
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+    conf.set(CanopyConfiguration.DISTANCE_MEASURE_KEY, manhattanDistanceMeasure.getClass().getName());
+    conf.set(CanopyConfiguration.T1_KEY, String.valueOf(3.1));
+    conf.set(CanopyConfiguration.T2_KEY, String.valueOf(2.1));
     DummyRecordWriter<Text, VectorWritable> writer = new DummyRecordWriter<Text, VectorWritable>();
     Mapper<WritableComparable<?>, VectorWritable, Text, VectorWritable>.Context context = DummyRecordWriter.build(mapper,
                                                                                                                   conf,
@@ -198,10 +198,12 @@ public final class TestCanopyCreation extends MahoutTestCase {
   @Test
   public void testCanopyMapperEuclidean() throws Exception {
     CanopyMapper mapper = new CanopyMapper();
+
     Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY, euclideanDistanceMeasure.getClass().getName());
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+    conf.set(CanopyConfiguration.DISTANCE_MEASURE_KEY, euclideanDistanceMeasure.getClass().getName());
+    conf.set(CanopyConfiguration.T1_KEY, String.valueOf(3.1));
+    conf.set(CanopyConfiguration.T2_KEY, String.valueOf(2.1));
+
     DummyRecordWriter<Text, VectorWritable> writer = new DummyRecordWriter<Text, VectorWritable>();
     Mapper<WritableComparable<?>, VectorWritable, Text, VectorWritable>.Context context = DummyRecordWriter.build(mapper,
                                                                                                                   conf,
@@ -231,9 +233,9 @@ public final class TestCanopyCreation extends MahoutTestCase {
   public void testCanopyReducerManhattan() throws Exception {
     CanopyReducer reducer = new CanopyReducer();
     Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY, "org.apache.mahout.common.distance.ManhattanDistanceMeasure");
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+    conf.set(CanopyConfiguration.DISTANCE_MEASURE_KEY, "org.apache.mahout.common.distance.ManhattanDistanceMeasure");
+    conf.set(CanopyConfiguration.T1_KEY, String.valueOf(3.1));
+    conf.set(CanopyConfiguration.T2_KEY, String.valueOf(2.1));
     DummyRecordWriter<Text, Canopy> writer = new DummyRecordWriter<Text, Canopy>();
     Reducer<Text, VectorWritable, Text, Canopy>.Context context = DummyRecordWriter.build(reducer,
                                                                                           conf,
@@ -263,9 +265,9 @@ public final class TestCanopyCreation extends MahoutTestCase {
   public void testCanopyReducerEuclidean() throws Exception {
     CanopyReducer reducer = new CanopyReducer();
     Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY, "org.apache.mahout.common.distance.EuclideanDistanceMeasure");
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+    conf.set(CanopyConfiguration.DISTANCE_MEASURE_KEY, "org.apache.mahout.common.distance.EuclideanDistanceMeasure");
+    conf.set(CanopyConfiguration.T1_KEY, String.valueOf(3.1));
+    conf.set(CanopyConfiguration.T2_KEY, String.valueOf(2.1));
     DummyRecordWriter<Text, Canopy> writer = new DummyRecordWriter<Text, Canopy>();
     Reducer<Text, VectorWritable, Text, Canopy>.Context context = DummyRecordWriter.build(reducer,
                                                                                           conf,
@@ -356,9 +358,9 @@ public final class TestCanopyCreation extends MahoutTestCase {
   public void testClusterMapperManhattan() throws Exception {
     ClusterMapper mapper = new ClusterMapper();
     Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY, "org.apache.mahout.common.distance.ManhattanDistanceMeasure");
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+    conf.set(CanopyConfiguration.DISTANCE_MEASURE_KEY, "org.apache.mahout.common.distance.ManhattanDistanceMeasure");
+    conf.set(CanopyConfiguration.T1_KEY, String.valueOf(3.1));
+    conf.set(CanopyConfiguration.T2_KEY, String.valueOf(2.1));
     DummyRecordWriter<IntWritable, WeightedVectorWritable> writer = new DummyRecordWriter<IntWritable, WeightedVectorWritable>();
     Mapper<WritableComparable<?>, VectorWritable, IntWritable, WeightedVectorWritable>.Context context = DummyRecordWriter
         .build(mapper, conf, writer);
@@ -392,9 +394,9 @@ public final class TestCanopyCreation extends MahoutTestCase {
   public void testClusterMapperEuclidean() throws Exception {
     ClusterMapper mapper = new ClusterMapper();
     Configuration conf = new Configuration();
-    conf.set(CanopyConfigKeys.DISTANCE_MEASURE_KEY, "org.apache.mahout.common.distance.EuclideanDistanceMeasure");
-    conf.set(CanopyConfigKeys.T1_KEY, String.valueOf(3.1));
-    conf.set(CanopyConfigKeys.T2_KEY, String.valueOf(2.1));
+    conf.set(CanopyConfiguration.DISTANCE_MEASURE_KEY, "org.apache.mahout.common.distance.EuclideanDistanceMeasure");
+    conf.set(CanopyConfiguration.T1_KEY, String.valueOf(3.1));
+    conf.set(CanopyConfiguration.T2_KEY, String.valueOf(2.1));
     DummyRecordWriter<IntWritable, WeightedVectorWritable> writer = new DummyRecordWriter<IntWritable, WeightedVectorWritable>();
     Mapper<WritableComparable<?>, VectorWritable, IntWritable, WeightedVectorWritable>.Context context = DummyRecordWriter
         .build(mapper, conf, writer);
