@@ -28,7 +28,7 @@ public class KMeansSequentialAlgorithm {
     KMeansClusterer clusterer = new KMeansClusterer(kMeansConfiguration.getDistanceMeasure());
     Collection<Cluster> clusters = new ArrayList<Cluster>();
 
-    KMeansUtil.configureWithClusterInfo(kMeansConfiguration.getClusterPath(), clusters);
+    KMeansUtil.configureWithClusterInfo(kMeansConfiguration.getInputClusters(), clusters);
     if (clusters.isEmpty()) {
       throw new IllegalStateException("Clusters is empty!");
     }
@@ -36,13 +36,13 @@ public class KMeansSequentialAlgorithm {
     boolean converged = false;
     int iteration = 1;
 
-    Path outputBaseDir = kMeansConfiguration.getOutput();
+    Path outputBaseDir = kMeansConfiguration.getOutputclusters();
 
     while (!converged && iteration <= kMeansConfiguration.getMaxIterations()) {
       log.info("K-Means Iteration {}", iteration);
 
-      FileSystem fs = FileSystem.get(kMeansConfiguration.getInput().toUri(), kMeansConfiguration.getConfiguration());
-      FileStatus[] status = fs.listStatus(kMeansConfiguration.getInput(), new OutputLogFilter());
+      FileSystem fs = FileSystem.get(kMeansConfiguration.getInputVectors().toUri(), kMeansConfiguration.getConfiguration());
+      FileStatus[] status = fs.listStatus(kMeansConfiguration.getInputVectors(), new OutputLogFilter());
       for (FileStatus s : status) {
         addPointToNearestCluster(kMeansConfiguration, clusterer, clusters, fs, s);
       }
@@ -50,7 +50,7 @@ public class KMeansSequentialAlgorithm {
 
       Path clustersOut = new Path(outputBaseDir, AbstractCluster.CLUSTERS_DIR + iteration);
 
-      kMeansConfiguration.setOutput(clustersOut);
+      kMeansConfiguration.setOutputClusters(clustersOut);
 
       SequenceFile.Writer writer = new SequenceFile.Writer(fs,
           kMeansConfiguration.getConfiguration(),
@@ -67,7 +67,7 @@ public class KMeansSequentialAlgorithm {
       } finally {
         writer.close();
       }
-      kMeansConfiguration.setClusterPath(clustersOut);
+      kMeansConfiguration.setInputClusters(clustersOut);
       iteration++;
     }
 
@@ -76,18 +76,18 @@ public class KMeansSequentialAlgorithm {
 
       if (log.isInfoEnabled()) {
         log.info("Running Clustering");
-        log.info("Input: {} Clusters In: {} Out: {} Distance: {}", new Object[]{kMeansConfiguration.getInput(), kMeansConfiguration.getClusterPath(), kMeansConfiguration.getPointsOutput(), kMeansConfiguration.getDistanceMeasure()});
+        log.info("Input: {} Clusters In: {} Out: {} Distance: {}", new Object[]{kMeansConfiguration.getInputVectors(), kMeansConfiguration.getInputClusters(), kMeansConfiguration.getOutputPoints(), kMeansConfiguration.getDistanceMeasure()});
         log.info("convergence: {} Input Vectors: {}", kMeansConfiguration.getConvergenceDelta(), VectorWritable.class.getName());
       }
 
-      FileSystem fs = FileSystem.get(kMeansConfiguration.getInput().toUri(), kMeansConfiguration.getConfiguration());
-      FileStatus[] statuses = fs.listStatus(kMeansConfiguration.getInput(), new OutputLogFilter());
+      FileSystem fs = FileSystem.get(kMeansConfiguration.getInputVectors().toUri(), kMeansConfiguration.getConfiguration());
+      FileStatus[] statuses = fs.listStatus(kMeansConfiguration.getInputVectors(), new OutputLogFilter());
       int part = 0;
       for (FileStatus status : statuses) {
         SequenceFile.Reader reader = new SequenceFile.Reader(fs, status.getPath(), kMeansConfiguration.getConfiguration());
         SequenceFile.Writer writer = new SequenceFile.Writer(fs,
             kMeansConfiguration.getConfiguration(),
-            new Path(kMeansConfiguration.getPointsOutput(), "part-m-" + part),
+            new Path(kMeansConfiguration.getOutputPoints(), "part-m-" + part),
             IntWritable.class,
             WeightedVectorWritable.class);
         try {

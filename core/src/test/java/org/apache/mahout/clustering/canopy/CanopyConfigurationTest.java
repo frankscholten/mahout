@@ -59,7 +59,7 @@ public class CanopyConfigurationTest {
     assertEquals("outputBase/clusteredPoints", canopyConfiguration.getPointsPath().toString());
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = NullPointerException.class)
   public void testConstructor_nullOutputBase() {
     new CanopyConfiguration(configuration, input, null);
   }
@@ -94,14 +94,14 @@ public class CanopyConfigurationTest {
     assertNotNull(canopyConfiguration.getConfiguration());
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = NullPointerException.class)
   public void testSetters_nullInput() {
     CanopyConfiguration canopyConfiguration = new CanopyConfiguration(configuration, input, outputBase);
 
     canopyConfiguration.setInputPath(null);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = NullPointerException.class)
   public void testSetters_nullDistanceMeasure() {
     CanopyConfiguration canopyConfiguration = new CanopyConfiguration(configuration, input, outputBase);
 

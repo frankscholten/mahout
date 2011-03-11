@@ -60,18 +60,18 @@ public class KMeansMapReduceAlgorithm {
     boolean converged = false;
     int iteration = 1;
 
-    Path outputBaseDir = kMeansConfiguration.getOutput();
+    Path outputClusters = kMeansConfiguration.getOutputclusters();
 
     while (!converged && (iteration <= kMeansConfiguration.getMaxIterations())) {
       log.info("K-Means Iteration {}", iteration);
       // point the output to a new directory per iteration
-      Path clustersOut = new Path(outputBaseDir, AbstractCluster.CLUSTERS_DIR + iteration);
+      Path outputIterationClusters = new Path(outputClusters, AbstractCluster.CLUSTERS_DIR + iteration);
 
-      kMeansConfiguration.setOutput(clustersOut);
+      kMeansConfiguration.setOutputClusters(outputIterationClusters);
 
       converged = isConverged(kMeansConfiguration);
       // now point the input to the old output directory
-      kMeansConfiguration.setClusterPath(clustersOut);
+      kMeansConfiguration.setInputClusters(outputIterationClusters);
 
       iteration++;
     }
@@ -80,7 +80,7 @@ public class KMeansMapReduceAlgorithm {
       Job job = createKMeansPointsJob(kMeansConfiguration);
 
       if (!job.waitForCompletion(true)) {
-        throw new InterruptedException("K-Means points failed processing " + kMeansConfiguration.getClusterPath().toString());
+        throw new InterruptedException("K-Means points failed processing " + kMeansConfiguration.getInputClusters().toString());
       }
     }
 
@@ -88,17 +88,17 @@ public class KMeansMapReduceAlgorithm {
   }
 
   private boolean isConverged(KMeansConfiguration kMeansConfiguration) throws IOException, ClassNotFoundException, InterruptedException {
-    HadoopUtil.overwriteOutput(kMeansConfiguration.getOutput());
+    HadoopUtil.overwriteOutput(kMeansConfiguration.getOutputclusters());
     Configuration configuration = kMeansConfiguration.getConfiguration();
 
     Job job = createKMeansIterationJob(kMeansConfiguration);
 
     if (!job.waitForCompletion(true)) {
-      throw new InterruptedException("K-Means Iteration failed processing " + kMeansConfiguration.getInput().toString());
+      throw new InterruptedException("K-Means Iteration failed processing " + kMeansConfiguration.getInputVectors().toString());
     }
-    FileSystem fs = FileSystem.get(kMeansConfiguration.getOutput().toUri(), configuration);
+    FileSystem fs = FileSystem.get(kMeansConfiguration.getOutputclusters().toUri(), configuration);
 
-    FileStatus[] parts = fs.listStatus(kMeansConfiguration.getOutput());
+    FileStatus[] parts = fs.listStatus(kMeansConfiguration.getOutputclusters());
     for (FileStatus part : parts) {
       String name = part.getPath().getName();
       if (name.startsWith("part") && !name.endsWith(".crc")) {
@@ -126,7 +126,7 @@ public class KMeansMapReduceAlgorithm {
   }
 
   private Job createKMeansIterationJob(KMeansConfiguration kmeansConfiguration) throws IOException {
-    Job job = new Job(kmeansConfiguration.getConfiguration(), "KMeans iteration using clustersPath: " + kmeansConfiguration.getClusterPath());
+    Job job = new Job(kmeansConfiguration.serialized(), "KMeans iteration using clustersPath: " + kmeansConfiguration.getOutputclusters());
     job.setMapOutputKeyClass(Text.class);
     job.setMapOutputValueClass(ClusterObservations.class);
     job.setOutputKeyClass(Text.class);
@@ -138,8 +138,8 @@ public class KMeansMapReduceAlgorithm {
     job.setCombinerClass(KMeansCombiner.class);
     job.setReducerClass(KMeansReducer.class);
 
-    FileInputFormat.addInputPath(job, kmeansConfiguration.getInput());
-    FileOutputFormat.setOutputPath(job, kmeansConfiguration.getOutput());
+    FileInputFormat.addInputPath(job, kmeansConfiguration.getInputVectors());
+    FileOutputFormat.setOutputPath(job, kmeansConfiguration.getOutputclusters());
 
     job.setJarByClass(KMeansDriver.class);
 
@@ -151,20 +151,20 @@ public class KMeansMapReduceAlgorithm {
 
     if (log.isInfoEnabled()) {
       log.info("Running Clustering");
-      log.info("Input: {} Clusters In: {} Out: {} Distance: {}", new Object[]{kMeansConfiguration.getInput(), kMeansConfiguration.getClusterPath(), kMeansConfiguration.getOutput(), kMeansConfiguration.getDistanceMeasure()
+      log.info("Input: {} Clusters In: {} Out: {} Distance: {}", new Object[]{kMeansConfiguration.getInputVectors(), kMeansConfiguration.getInputClusters(), kMeansConfiguration.getOutputclusters(), kMeansConfiguration.getDistanceMeasure()
       });
       log.info("convergence: {} Input Vectors: {}", kMeansConfiguration.getConvergenceDelta(), VectorWritable.class.getName());
     }
 
-    Job job = new Job(kMeansConfiguration.getConfiguration(), "KMeans Driver points job over input: " + kMeansConfiguration.getInput());
+    Job job = new Job(kMeansConfiguration.serialized(), "KMeans Driver points job over input: " + kMeansConfiguration.getInputVectors());
     job.setInputFormatClass(SequenceFileInputFormat.class);
     job.setOutputFormatClass(SequenceFileOutputFormat.class);
     job.setOutputKeyClass(IntWritable.class);
     job.setOutputValueClass(WeightedVectorWritable.class);
 
-    FileInputFormat.setInputPaths(job, kMeansConfiguration.getInput());
-    HadoopUtil.overwriteOutput(kMeansConfiguration.getPointsOutput());
-    FileOutputFormat.setOutputPath(job, kMeansConfiguration.getPointsOutput());
+    FileInputFormat.setInputPaths(job, kMeansConfiguration.getInputVectors());
+    HadoopUtil.overwriteOutput(kMeansConfiguration.getOutputPoints());
+    FileOutputFormat.setOutputPath(job, kMeansConfiguration.getOutputPoints());
 
     job.setMapperClass(KMeansClusterMapper.class);
     job.setNumReduceTasks(0);

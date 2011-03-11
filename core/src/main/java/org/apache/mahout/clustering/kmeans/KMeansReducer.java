@@ -16,18 +16,18 @@
  */
 package org.apache.mahout.clustering.kmeans;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.mahout.clustering.ClusterObservations;
 import org.apache.mahout.common.distance.DistanceMeasure;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 public class KMeansReducer extends Reducer<Text, ClusterObservations, Text, Cluster> {
 
@@ -37,7 +37,7 @@ public class KMeansReducer extends Reducer<Text, ClusterObservations, Text, Clus
 
   @Override
   protected void reduce(Text key, Iterable<ClusterObservations> values, Context context)
-    throws IOException, InterruptedException {
+          throws IOException, InterruptedException {
     Cluster cluster = clusterMap.get(key.toString());
     for (ClusterObservations delta : values) {
       cluster.observe(delta);
@@ -54,32 +54,25 @@ public class KMeansReducer extends Reducer<Text, ClusterObservations, Text, Clus
   @Override
   protected void setup(Context context) throws IOException, InterruptedException {
     super.setup(context);
+
     Configuration conf = context.getConfiguration();
-    try {
-      ClassLoader ccl = Thread.currentThread().getContextClassLoader();
-      DistanceMeasure measure = ccl.loadClass(conf.get(KMeansConfiguration.DISTANCE_MEASURE_KEY))
-          .asSubclass(DistanceMeasure.class).newInstance();
-      measure.configure(conf);
+    KMeansConfiguration kMeansConfiguration = KMeansConfiguration.deserialized(conf);
 
-      this.convergenceDelta = Double.parseDouble(conf.get(KMeansConfiguration.CLUSTER_CONVERGENCE_KEY));
-      this.clusterer = new KMeansClusterer(measure);
-      this.clusterMap = new HashMap<String, Cluster>();
+    DistanceMeasure measure = kMeansConfiguration.getDistanceMeasure();
+    measure.configure(conf);
 
-      String path = conf.get(KMeansConfiguration.CLUSTER_PATH_KEY);
-      if (path.length() > 0) {
-        Collection<Cluster> clusters = new ArrayList<Cluster>();
-        KMeansUtil.configureWithClusterInfo(new Path(path), clusters);
-        setClusterMap(clusters);
-        if (clusterMap.isEmpty()) {
-          throw new IllegalStateException("Cluster is empty!");
-        }
+    this.clusterer = new KMeansClusterer(measure);
+    this.convergenceDelta = kMeansConfiguration.getConvergenceDelta();
+    this.clusterMap = new HashMap<String, Cluster>();
+
+    Path clusterPath = kMeansConfiguration.getInputClusters();
+    if (clusterPath != null && clusterMap.toString().length() > 0) {
+      Collection<Cluster> clusters = new ArrayList<Cluster>();
+      KMeansUtil.configureWithClusterInfo(clusterPath, clusters);
+      setClusterMap(clusters);
+      if (clusterMap.isEmpty()) {
+        throw new IllegalStateException("Cluster is empty!");
       }
-    } catch (ClassNotFoundException e) {
-      throw new IllegalStateException(e);
-    } catch (IllegalAccessException e) {
-      throw new IllegalStateException(e);
-    } catch (InstantiationException e) {
-      throw new IllegalStateException(e);
     }
   }
 
@@ -95,5 +88,4 @@ public class KMeansReducer extends Reducer<Text, ClusterObservations, Text, Clus
     setClusterMap(clusters);
     this.clusterer = new KMeansClusterer(measure);
   }
-
 }

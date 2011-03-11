@@ -443,12 +443,17 @@ public final class TestKmeansClustering extends MahoutTestCase {
       // now run the Job
       Path outputPath = getTestTempDirPath("output");
       //KMeansDriver.runJob(pointsPath, clustersPath, outputPath, EuclideanDistanceMeasure.class.getName(), 0.001, 10, k + 1, true);
-      String[] args = { optKey(DefaultOptionCreator.INPUT_OPTION), pointsPath.toString(),
-          optKey(DefaultOptionCreator.CLUSTERS_IN_OPTION), clustersPath.toString(), optKey(DefaultOptionCreator.OUTPUT_OPTION),
-          outputPath.toString(), optKey(DefaultOptionCreator.DISTANCE_MEASURE_OPTION), EuclideanDistanceMeasure.class.getName(),
-          optKey(DefaultOptionCreator.CONVERGENCE_DELTA_OPTION), "0.001", optKey(DefaultOptionCreator.MAX_ITERATIONS_OPTION), "2",
-          optKey(DefaultOptionCreator.CLUSTERING_OPTION), optKey(DefaultOptionCreator.OVERWRITE_OPTION) };
-      ToolRunner.run(new Configuration(), new KMeansDriver(), args);
+
+      KMeansConfiguration kMeansConfiguration = new KMeansConfiguration(conf, pointsPath, outputPath, clustersPath, 2);
+
+      new KMeansMapReduceAlgorithm().run(kMeansConfiguration);
+
+//      String[] args = { optKey(DefaultOptionCreator.INPUT_OPTION), pointsPath.toString(),
+//          optKey(DefaultOptionCreator.CLUSTERS_IN_OPTION), clustersPath.toString(), optKey(DefaultOptionCreator.OUTPUT_OPTION),
+//          outputPath.toString(), optKey(DefaultOptionCreator.DISTANCE_MEASURE_OPTION), EuclideanDistanceMeasure.class.getName(),
+//          optKey(DefaultOptionCreator.CONVERGENCE_DELTA_OPTION), "0.001", optKey(DefaultOptionCreator.MAX_ITERATIONS_OPTION), "2",
+//          optKey(DefaultOptionCreator.CLUSTERING_OPTION), optKey(DefaultOptionCreator.OVERWRITE_OPTION) };
+//      ToolRunner.run(new Configuration(), new KMeansDriver(), args);
 
       // now compare the expected clusters with actual
       Path clusteredPointsPath = new Path(outputPath, "clusteredPoints");

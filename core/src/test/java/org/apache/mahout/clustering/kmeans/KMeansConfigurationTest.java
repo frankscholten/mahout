@@ -22,9 +22,11 @@ import org.apache.hadoop.fs.Path;
 import org.apache.mahout.clustering.AbstractCluster;
 import org.apache.mahout.common.MahoutTestCase;
 import org.apache.mahout.common.distance.CosineDistanceMeasure;
-import org.easymock.classextension.EasyMock;
+import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.io.IOException;
 
 import static org.apache.mahout.clustering.kmeans.KMeansConfiguration.DEFAULT_CONVERGENCE_DELTA;
 import static org.apache.mahout.clustering.kmeans.KMeansConfiguration.DEFAULT_DISTANCE_MEASURE_CLASSNAME;
@@ -54,9 +56,9 @@ public class KMeansConfigurationTest extends MahoutTestCase {
     KMeansConfiguration kMeansConfiguration = new KMeansConfiguration(configuration, input, output, clusterPath, maxIterations);
 
     assertSame(configuration, kMeansConfiguration.getConfiguration());
-    assertSame(input, kMeansConfiguration.getInput());
-    assertSame(output, kMeansConfiguration.getOutput());
-    assertEquals(clusterPath, kMeansConfiguration.getClusterPath());
+    assertSame(input, kMeansConfiguration.getInputVectors());
+    assertSame(output, kMeansConfiguration.getOutputclusters());
+    assertEquals(clusterPath, kMeansConfiguration.getInputClusters());
     assertSame(maxIterations, kMeansConfiguration.getMaxIterations());
     assertTrue(kMeansConfiguration.runsClustering());
 
@@ -102,15 +104,41 @@ public class KMeansConfigurationTest extends MahoutTestCase {
     kMeansConfiguration.setConvergenceDelta(convergenceDelta);
     kMeansConfiguration.setDistanceMeasure(distanceMeasure);
     kMeansConfiguration.setMaxIterations(maxIterations);
-    kMeansConfiguration.setOutput(output);
+    kMeansConfiguration.setOutputClusters(output);
     kMeansConfiguration.setRunClustering(runsClustering);
 
     assertEquals(convergenceDelta, kMeansConfiguration.getConvergenceDelta(), EPSILON);
     assertEquals(distanceMeasure.getClass().getName(), kMeansConfiguration.getDistanceMeasureClassName());
     assertEquals(distanceMeasure, kMeansConfiguration.getDistanceMeasure());
     assertEquals(maxIterations, kMeansConfiguration.getMaxIterations());
-    assertEquals(output, kMeansConfiguration.getOutput());
+    assertEquals(output, kMeansConfiguration.getOutputclusters());
     assertEquals(runsClustering, kMeansConfiguration.runsClustering());
-    assertEquals(new Path(kMeansConfiguration.getOutput().getParent(), AbstractCluster.CLUSTERED_POINTS_DIR), kMeansConfiguration.getPointsOutput());
+    assertEquals(new Path(kMeansConfiguration.getOutputclusters().getParent(), AbstractCluster.CLUSTERED_POINTS_DIR), kMeansConfiguration.getOutputPoints());
+  }
+
+  @Test
+  public void testDeserialized() throws IOException {
+    KMeansConfiguration kMeansConfiguration = new KMeansConfiguration(configuration, input, output, clusterPath, maxIterations);
+
+    Configuration serialized = kMeansConfiguration.serialized();
+
+    KMeansConfiguration deserialized = KMeansConfiguration.deserialized(serialized);
+
+    assertEquals(kMeansConfiguration, deserialized);
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testDeserialized_unInstantiatiableDistanceMeasureClass() throws IOException {
+    class PrivateDistanceMeasure extends EuclideanDistanceMeasure {
+    }
+
+    KMeansConfiguration kMeansConfiguration = new KMeansConfiguration(configuration, input, output, clusterPath, maxIterations);
+    kMeansConfiguration.setDistanceMeasure(new PrivateDistanceMeasure());
+
+    Configuration serialized = kMeansConfiguration.serialized();
+
+    KMeansConfiguration deserialized = KMeansConfiguration.deserialized(serialized);
+
+    assertEquals(kMeansConfiguration, deserialized);
   }
 }
