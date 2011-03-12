@@ -43,8 +43,6 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.mahout.common.CommandLineUtil;
 import org.apache.mahout.math.VectorWritable;
 import org.apache.mahout.utils.vectors.TermInfo;
-import org.apache.mahout.utils.vectors.io.JWriterTermInfoWriter;
-import org.apache.mahout.utils.vectors.io.JWriterVectorWriter;
 import org.apache.mahout.utils.vectors.io.SequenceFileVectorWriter;
 import org.apache.mahout.utils.vectors.io.VectorWriter;
 import org.apache.mahout.vectorizer.TF;
@@ -136,6 +134,7 @@ public final class Driver {
         CommandLineUtil.printHelp(group);
         return;
       }
+
       // Springify all this
       if (cmdLine.hasOption(inputOpt)) { // Lucene case
         File file = new File(cmdLine.getValue(inputOpt).toString());
@@ -209,50 +208,35 @@ public final class Driver {
         String outFile = cmdLine.getValue(outputOpt).toString();
         log.info("Output File: {}", outFile);
 
-        VectorWriter vectorWriter;
+        LuceneVectorConverterConfiguration luceneConfiguration = new LuceneVectorConverterConfiguration(file, new Path(outFile), field);
+
         if (cmdLine.hasOption(outWriterOpt)) {
           String outWriter = cmdLine.getValue(outWriterOpt).toString();
           if ("file".equals(outWriter)) {
-            Writer writer = new OutputStreamWriter(new FileOutputStream(new File(outFile)), Charset.forName("UTF8"));
-            vectorWriter = new JWriterVectorWriter(writer);
+            luceneConfiguration.useSeqFileWriter();
           } else {
-            vectorWriter = getSeqFileWriter(outFile);
+            luceneConfiguration.useJsonVectorWriter();
           }
-        } else {
-          vectorWriter = getSeqFileWriter(outFile);
         }
-
-        long numDocs = vectorWriter.write(iterable, maxDocs);
-        vectorWriter.close();
-        log.info("Wrote: {} vectors", numDocs);
 
         String delimiter = cmdLine.hasOption(delimiterOpt) ? cmdLine.getValue(delimiterOpt).toString() : "\t";
         
         File dictOutFile = new File(cmdLine.getValue(dictOutOpt).toString());
-        log.info("Dictionary Output file: {}", dictOutFile);
-        Writer writer = new OutputStreamWriter(new FileOutputStream(dictOutFile), Charset.forName("UTF8"));
-        JWriterTermInfoWriter tiWriter = new JWriterTermInfoWriter(writer, delimiter, field);
-        tiWriter.write(termInfo);
-        tiWriter.close();
-        writer.close();
 
+        luceneConfiguration.setDelimiter(delimiter);
+        luceneConfiguration.setIdField(idField);
+        luceneConfiguration.setWeight(weight);
+        luceneConfiguration.setMaxDfPercentage(maxDFPercent);
+        luceneConfiguration.setMaxVectors(maxDocs);
+        luceneConfiguration.setMinDf(minDf);
+        luceneConfiguration.setNormPower(norm);
+        luceneConfiguration.setOutputDictionary(dictOutFile);
+
+        new LuceneVectorConverter().convertLuceneVectors(luceneConfiguration);
       }
     } catch (OptionException e) {
       log.error("Exception", e);
       CommandLineUtil.printHelp(group);
     }
   }
-
-  private static VectorWriter getSeqFileWriter(String outFile) throws IOException {
-    Path path = new Path(outFile);
-    Configuration conf = new Configuration();
-    FileSystem fs = FileSystem.get(conf);
-    // TODO: Make this parameter driven
-
-    SequenceFile.Writer seqWriter = SequenceFile.createWriter(fs, conf, path, LongWritable.class,
-      VectorWritable.class);
-
-    return new SequenceFileVectorWriter(seqWriter);
-  }
-
 }
