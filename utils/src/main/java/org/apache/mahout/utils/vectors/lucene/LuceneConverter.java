@@ -13,18 +13,18 @@ import java.io.*;
 import java.nio.charset.Charset;
 
 /**
- * Reads Lucene vectors and outputs Mahout sparse vectors based on the {@link LuceneVectorConverterConfiguration}
+ * Reads Lucene vectors and outputs Mahout sparse vectors based on the {@link LuceneConverterConfiguration}
  */
-public class LuceneVectorConverter {
+public class LuceneConverter {
 
-  private static final Logger log = LoggerFactory.getLogger(LuceneVectorConverter.class);
+  private static final Logger log = LoggerFactory.getLogger(LuceneConverter.class);
 
   /**
    * Converts vectors of Lucene index to Mahout vectors via the given configuration.
    *
    * @param configuration configuration of the lucene index and output of mahout vector files
    */
-  public void convertLuceneVectors(LuceneVectorConverterConfiguration configuration) {
+  public void convertLuceneVectors(LuceneConverterConfiguration configuration) {
     try {
       writeVectors(configuration);
       writeDictionaryFile(configuration);
@@ -33,7 +33,7 @@ public class LuceneVectorConverter {
     }
   }
 
-  private void writeVectors(LuceneVectorConverterConfiguration configuration) throws IOException {
+  private void writeVectors(LuceneConverterConfiguration configuration) throws IOException {
     VectorWriter vectorWriter = configuration.getVectorWriter();
     LuceneIterable luceneIterable = configuration.createLuceneIterable();
 
@@ -43,18 +43,18 @@ public class LuceneVectorConverter {
     log.info("Wrote: {} vectors", numDocs);
   }
 
-  private void writeDictionaryFile(LuceneVectorConverterConfiguration luceneVectorConverterConfiguration) throws IOException {
-    Directory dir = FSDirectory.open(luceneVectorConverterConfiguration.getIndexDirectory());
+  private void writeDictionaryFile(LuceneConverterConfiguration luceneConverterConfiguration) throws IOException {
+    Directory dir = FSDirectory.open(luceneConverterConfiguration.getIndexDirectory());
     IndexReader reader = IndexReader.open(dir, true);
-    TermInfo termInfo = new CachedTermInfo(reader, luceneVectorConverterConfiguration.getField(), luceneVectorConverterConfiguration.getMinDf(), luceneVectorConverterConfiguration.getMaxDfPercentage());
+    TermInfo termInfo = new CachedTermInfo(reader, luceneConverterConfiguration.getField(), luceneConverterConfiguration.getMinDf(), luceneConverterConfiguration.getMaxDfPercentage());
 
-    Writer writer = new OutputStreamWriter(new FileOutputStream(luceneVectorConverterConfiguration.getOutputDictionary()), Charset.forName("UTF8"));
-    JWriterTermInfoWriter tiWriter = new JWriterTermInfoWriter(writer, luceneVectorConverterConfiguration.getDelimiter(), luceneVectorConverterConfiguration.getField());
+    Writer writer = new OutputStreamWriter(new FileOutputStream(luceneConverterConfiguration.getOutputDictionary()), Charset.forName("UTF8"));
+    JWriterTermInfoWriter tiWriter = new JWriterTermInfoWriter(writer, luceneConverterConfiguration.getDelimiter(), luceneConverterConfiguration.getField());
     tiWriter.write(termInfo);
     tiWriter.close();
 
     writer.close();
 
-    log.info("Dictionary Output file: {}", luceneVectorConverterConfiguration.getOutputDictionary());    
+    log.info("Dictionary Output file: {}", luceneConverterConfiguration.getOutputDictionary());
   }
 }

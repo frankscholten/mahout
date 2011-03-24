@@ -14,15 +14,23 @@ import org.apache.mahout.utils.vectors.TermInfo;
 import org.apache.mahout.utils.vectors.io.JWriterVectorWriter;
 import org.apache.mahout.utils.vectors.io.SequenceFileVectorWriter;
 import org.apache.mahout.utils.vectors.io.VectorWriter;
+import org.apache.mahout.vectorizer.TFIDF;
 import org.apache.mahout.vectorizer.Weight;
 
 import java.io.*;
 import java.nio.charset.Charset;
 
 /**
- * Configuration for {@link LuceneVectorConverter}
+ * Configuration for {@link LuceneConverter}
  */
-public class LuceneVectorConverterConfiguration {
+public class LuceneConverterConfiguration {
+
+  public static final int DEFAULT_MIN_DF = 1;
+  public static final int DEFAULT_MAX_DF_PERCENTAGE = 99;
+  public static final String DEFAULT_DELIMITER = "\t";
+  public static final TFIDF DEFAULT_WEIGHT = new TFIDF();
+  public static final double DEFAULT_NORM_POWER = LuceneIterable.NO_NORMALIZING;
+  public static final long DEFAULT_MAX_VECTORS = Long.MAX_VALUE;
 
   private File indexDirectory;
   private Path outputVectors;
@@ -37,7 +45,7 @@ public class LuceneVectorConverterConfiguration {
   private int minDf;
   private VectorWriter vectorWriter;
 
-  public LuceneVectorConverterConfiguration(File indexDirectory, Path outputVectors, String field) {
+    public LuceneConverterConfiguration(File indexDirectory, Path outputVectors, String field) {
     Preconditions.checkNotNull(indexDirectory, "IndexDirectory cannot be null");
     Preconditions.checkNotNull(outputVectors, "Outputvectors cannot be null");
     Preconditions.checkNotNull(field, "Field cannot be null");
@@ -49,7 +57,12 @@ public class LuceneVectorConverterConfiguration {
     this.indexDirectory = indexDirectory;
     this.outputVectors = outputVectors;
     this.field = field;
-    this.normPower = LuceneIterable.NO_NORMALIZING;
+    this.normPower = DEFAULT_NORM_POWER;
+    this.minDf = DEFAULT_MIN_DF;
+    this.weight = DEFAULT_WEIGHT;
+    this.maxDfPercentage = DEFAULT_MAX_DF_PERCENTAGE;
+    this.maxVectors = DEFAULT_MAX_VECTORS;
+    this.delimiter = DEFAULT_DELIMITER;
 
     useSeqFileWriter();
   }
@@ -162,7 +175,7 @@ public class LuceneVectorConverterConfiguration {
       IndexReader reader = IndexReader.open(dir, true);
       TermInfo termInfo = new CachedTermInfo(reader, field, minDf, maxDfPercentage);
       VectorMapper mapper = new TFDFMapper(reader, weight, termInfo);
-      return new LuceneIterable(reader, idField, field, mapper, LuceneIterable.NO_NORMALIZING);
+      return new LuceneIterable(reader, idField, field, mapper, DEFAULT_NORM_POWER);
     } catch (IOException e) {
       throw new RuntimeException("Could not create " + LuceneIterable.class.getSimpleName(), e);
     }

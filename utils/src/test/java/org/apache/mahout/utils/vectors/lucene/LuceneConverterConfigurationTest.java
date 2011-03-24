@@ -11,6 +11,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 
 import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -19,9 +20,9 @@ import static org.junit.Assert.fail;
 /**
  * Tests configuration of creating Mahout vectors from a Lucene index
  */
-public class LuceneConfigurationTest {
+public class LuceneConverterConfigurationTest {
 
-  private LuceneVectorConverterConfiguration luceneConfig;
+  private LuceneConverterConfiguration luceneConfig;
   private File indexDirectory;
   private Path outputVectors;
   private String field;
@@ -37,7 +38,7 @@ public class LuceneConfigurationTest {
     outputVectors = new Path("outputVectors");
     field = "field";
 
-    luceneConfig = new LuceneVectorConverterConfiguration(indexDirectory, outputVectors, field);
+    luceneConfig = new LuceneConverterConfiguration(indexDirectory, outputVectors, field);
   }
 
   @After
@@ -48,32 +49,41 @@ public class LuceneConfigurationTest {
   }
 
   @Test
-  public void testConstructor() {
+  public void testConstructor_params() {
     assertEquals(indexDirectory, luceneConfig.getIndexDirectory());
     assertEquals(outputVectors, luceneConfig.getOutputVectors());
     assertEquals(field, luceneConfig.getField());
-    assertTrue(luceneConfig.getVectorWriter() instanceof SequenceFileVectorWriter);
+  }
+
+  @Test
+  public void testConstructor_defaults() {
     assertEquals(LuceneIterable.NO_NORMALIZING, luceneConfig.getNormPower());
+    assertEquals(LuceneConverterConfiguration.DEFAULT_MIN_DF, luceneConfig.getMinDf());
+    assertEquals(LuceneConverterConfiguration.DEFAULT_MAX_DF_PERCENTAGE, luceneConfig.getMaxDfPercentage());
+    assertEquals(LuceneConverterConfiguration.DEFAULT_DELIMITER, luceneConfig.getDelimiter());
+      assertEquals(LuceneConverterConfiguration.DEFAULT_MAX_VECTORS, luceneConfig.getMaxVectors());
+      assertTrue(luceneConfig.getVectorWriter() instanceof SequenceFileVectorWriter);
+      assertTrue(luceneConfig.getWeight() instanceof TFIDF);
   }
 
   @Test(expected = NullPointerException.class)
   public void testConstructor_nullIndexDirectory() {
-    new LuceneVectorConverterConfiguration(null, outputVectors, field);
+    new LuceneConverterConfiguration(null, outputVectors, field);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testConstructor_indexDirectoryNotADirectory() {
-    new LuceneVectorConverterConfiguration(new File("file"), outputVectors, field);
+    new LuceneConverterConfiguration(new File("file"), outputVectors, field);
   }
 
   @Test(expected = NullPointerException.class)
   public void testConstructor_nullOutputVectors() {
-    new LuceneVectorConverterConfiguration(indexDirectory, null, field);
+    new LuceneConverterConfiguration(indexDirectory, null, field);
   }
 
   @Test(expected = NullPointerException.class)
   public void testConstructor_nullField() {
-    new LuceneVectorConverterConfiguration(indexDirectory, outputVectors, null);
+    new LuceneConverterConfiguration(indexDirectory, outputVectors, null);
   }
 
   @Test

@@ -18,11 +18,7 @@
 package org.apache.mahout.utils.vectors.lucene;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.nio.charset.Charset;
 
 import org.apache.commons.cli2.CommandLine;
 import org.apache.commons.cli2.Group;
@@ -32,22 +28,9 @@ import org.apache.commons.cli2.builder.ArgumentBuilder;
 import org.apache.commons.cli2.builder.DefaultOptionBuilder;
 import org.apache.commons.cli2.builder.GroupBuilder;
 import org.apache.commons.cli2.commandline.Parser;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.SequenceFile;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
 import org.apache.mahout.common.CommandLineUtil;
-import org.apache.mahout.math.VectorWritable;
-import org.apache.mahout.utils.vectors.TermInfo;
-import org.apache.mahout.utils.vectors.io.SequenceFileVectorWriter;
-import org.apache.mahout.utils.vectors.io.VectorWriter;
 import org.apache.mahout.vectorizer.TF;
-import org.apache.mahout.vectorizer.TFIDF;
-import org.apache.mahout.vectorizer.Weight;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,12 +92,12 @@ public final class Driver {
 
     Option minDFOpt = obuilder.withLongName("minDF").withRequired(false).withArgument(
       abuilder.withName("minDF").withMinimum(1).withMaximum(1).create()).withDescription(
-      "The minimum document frequency.  Default is 1").withShortName("md").create();
+      "The minimum document frequency.  Default is " + LuceneConverterConfiguration.DEFAULT_MIN_DF).withShortName("md").create();
 
     Option maxDFPercentOpt = obuilder.withLongName("maxDFPercent").withRequired(false).withArgument(
       abuilder.withName("maxDFPercent").withMinimum(1).withMaximum(1).create()).withDescription(
       "The max percentage of docs for the DF.  Can be used to remove really high frequency terms."
-          + "  Expressed as an integer between 0 and 100. Default is 99.").withShortName("x").create();
+          + "  Expressed as an integer between 0 and 100. Default is " + LuceneConverterConfiguration.DEFAULT_MAX_DF_PERCENTAGE).withShortName("x").create();
 
     Option helpOpt = obuilder.withLongName("help").withDescription("Print out help").withShortName("h")
         .create();
@@ -130,85 +113,54 @@ public final class Driver {
       CommandLine cmdLine = parser.parse(args);
 
       if (cmdLine.hasOption(helpOpt)) {
-        
         CommandLineUtil.printHelp(group);
         return;
       }
 
-      // Springify all this
       if (cmdLine.hasOption(inputOpt)) { // Lucene case
+
         File file = new File(cmdLine.getValue(inputOpt).toString());
         if (!file.isDirectory()) {
           throw new IllegalArgumentException("Lucene directory: " + file.getAbsolutePath()
               +  " does not exist or is not a directory");
         }
 
-        long maxDocs = Long.MAX_VALUE;
-        if (cmdLine.hasOption(maxOpt)) {
-          maxDocs = Long.parseLong(cmdLine.getValue(maxOpt).toString());
-        }
-        if (maxDocs < 0) {
-          throw new IllegalArgumentException("maxDocs must be >= 0");
-        }
-
-        Directory dir = FSDirectory.open(file);
-        IndexReader reader = IndexReader.open(dir, true);
-
-        Weight weight;
-        if (cmdLine.hasOption(weightOpt)) {
-          String wString = cmdLine.getValue(weightOpt).toString();
-          if ("tf".equalsIgnoreCase(wString)) {
-            weight = new TF();
-          } else if ("tfidf".equalsIgnoreCase(wString)) {
-            weight = new TFIDF();
-          } else {
-            throw new OptionException(weightOpt);
-          }
-        } else {
-          weight = new TFIDF();
-        }
-
-        String field = cmdLine.getValue(fieldOpt).toString();
-
-        int minDf = 1;
-        if (cmdLine.hasOption(minDFOpt)) {
-          minDf = Integer.parseInt(cmdLine.getValue(minDFOpt).toString());
-        }
-
-        int maxDFPercent = 99;
-        if (cmdLine.hasOption(maxDFPercentOpt)) {
-          maxDFPercent = Integer.parseInt(cmdLine.getValue(maxDFPercentOpt).toString());
-        }
-
-        TermInfo termInfo = new CachedTermInfo(reader, field, minDf, maxDFPercent);
-        VectorMapper mapper = new TFDFMapper(reader, weight, termInfo);
-
-        double norm = LuceneIterable.NO_NORMALIZING;
-        if (cmdLine.hasOption(powerOpt)) {
-          String power = cmdLine.getValue(powerOpt).toString();
-          if ("INF".equals(power)) {
-            norm = Double.POSITIVE_INFINITY;
-          } else {
-            norm = Double.parseDouble(power);
-          }
-        }
-
-        String idField = null;
-        if (cmdLine.hasOption(idFieldOpt)) {
-          idField = cmdLine.getValue(idFieldOpt).toString();
-        }
-
-        LuceneIterable iterable;
-        if (norm == LuceneIterable.NO_NORMALIZING) {
-          iterable = new LuceneIterable(reader, idField, field, mapper, LuceneIterable.NO_NORMALIZING);
-        } else {
-          iterable = new LuceneIterable(reader, idField, field, mapper, norm);
-        }
-
         String outFile = cmdLine.getValue(outputOpt).toString();
         log.info("Output File: {}", outFile);
 
-        LuceneVectorConverterConfiguration luceneConfiguration = new LuceneVectorConverterConfiguration(file, new Path(outFile), field);
+        String field = cmdLine.getValue(fieldOpt).toString();
+
+        LuceneConverterConfiguration luceneConfiguration = new LuceneConverterConfiguration(file, new Path(outFile), field);
+
+        if (cmdLine.hasOption(weightOpt)) {
+          String wString = cmdLine.getValue(weightOpt).toString();
+          if ("tf".equalsIgnoreCase(wString)) {
+            luceneConfiguration.setWeight(new TF());
+          } else {
+            throw new OptionException(weightOpt);
+          }
+        }
+
+        if (cmdLine.hasOption(minDFOpt)) {
+          luceneConfiguration.setMinDf(Integer.parseInt(cmdLine.getValue(minDFOpt).toString()));
+        }
+
+        if (cmdLine.hasOption(maxDFPercentOpt)) {
+          luceneConfiguration.setMaxDfPercentage(Integer.parseInt(cmdLine.getValue(maxDFPercentOpt).toString()));
+        }
+
+        if (cmdLine.hasOption(powerOpt)) {
+          String power = cmdLine.getValue(powerOpt).toString();
+          if ("INF".equals(power)) {
+            luceneConfiguration.setNormPower(Double.POSITIVE_INFINITY);
+          } else {
+            luceneConfiguration.setNormPower(Double.parseDouble(power));
+          }
+        }
+
+        if (cmdLine.hasOption(idFieldOpt)) {
+          luceneConfiguration.setIdField(cmdLine.getValue(idFieldOpt).toString());
+        }
 
         if (cmdLine.hasOption(outWriterOpt)) {
           String outWriter = cmdLine.getValue(outWriterOpt).toString();
@@ -219,20 +171,21 @@ public final class Driver {
           }
         }
 
-        String delimiter = cmdLine.hasOption(delimiterOpt) ? cmdLine.getValue(delimiterOpt).toString() : "\t";
-        
-        File dictOutFile = new File(cmdLine.getValue(dictOutOpt).toString());
+        if (cmdLine.hasOption(delimiterOpt)) {
+          luceneConfiguration.setDelimiter(cmdLine.getValue(delimiterOpt).toString());
+        }
 
-        luceneConfiguration.setDelimiter(delimiter);
-        luceneConfiguration.setIdField(idField);
-        luceneConfiguration.setWeight(weight);
-        luceneConfiguration.setMaxDfPercentage(maxDFPercent);
-        luceneConfiguration.setMaxVectors(maxDocs);
-        luceneConfiguration.setMinDf(minDf);
-        luceneConfiguration.setNormPower(norm);
-        luceneConfiguration.setOutputDictionary(dictOutFile);
+        luceneConfiguration.setOutputDictionary(new File(cmdLine.getValue(dictOutOpt).toString()));
 
-        new LuceneVectorConverter().convertLuceneVectors(luceneConfiguration);
+        if (cmdLine.hasOption(maxOpt)) {
+          long maxDocs = Long.parseLong(cmdLine.getValue(maxOpt).toString());
+          if (maxDocs < 0) {
+            throw new IllegalArgumentException("maxDocs must be >= 0");
+          }
+          luceneConfiguration.setMaxVectors(maxDocs);
+        }
+
+        new LuceneConverter().convertLuceneVectors(luceneConfiguration);
       }
     } catch (OptionException e) {
       log.error("Exception", e);
