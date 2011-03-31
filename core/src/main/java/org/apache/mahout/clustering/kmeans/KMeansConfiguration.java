@@ -21,10 +21,10 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DefaultStringifier;
-import org.apache.hadoop.io.Writable;
 import org.apache.mahout.clustering.AbstractCluster;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.SquaredEuclideanDistanceMeasure;
+import org.apache.mahout.config.SerializableConfiguration;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -34,7 +34,7 @@ import java.io.IOException;
  * Holds default, mandatory and optional configuration for the K-Means algorithm. Can be serialized into a Hadoop
  * {@link Configuration} object and deserialized at mappers, combiners and reducers.
  */
-public class KMeansConfiguration implements Writable {
+public class KMeansConfiguration implements SerializableConfiguration<KMeansConfiguration> {
 
   // Hadoop configuration keys
 
@@ -60,11 +60,6 @@ public class KMeansConfiguration implements Writable {
   static String DEFAULT_DISTANCE_MEASURE_CLASSNAME = SquaredEuclideanDistanceMeasure.class.getName();
   static double DEFAULT_CONVERGENCE_DELTA = 0.5;
 
-  public static KMeansConfiguration deserialized(Configuration configuration) throws IOException {
-    String serializedConfigString = configuration.get(KMeansConfiguration.SERIALIZATION_KEY);
-    return new DefaultStringifier<KMeansConfiguration>(configuration, KMeansConfiguration.class).fromString(serializedConfigString);
-  }
-
   // Input
   private Path inputVectors;
   private Path inputClusters;
@@ -84,7 +79,7 @@ public class KMeansConfiguration implements Writable {
   public KMeansConfiguration() {
   }
 
-  public KMeansConfiguration(Configuration configuration, Path inputVectors, Path outputClusters, Path inputClusters, int maxIterations) {
+  public KMeansConfiguration(Configuration configuration, Path inputVectors, Path outputClusters, Path inputClusters, int maxIterations) throws IOException {
     Preconditions.checkArgument(configuration != null, "Configuration cannot be null");
     Preconditions.checkArgument(inputVectors != null, "Input path cannot be null");
     Preconditions.checkArgument(outputClusters != null, "Output path cannot be null");
@@ -101,6 +96,22 @@ public class KMeansConfiguration implements Writable {
     this.runClustering = true;
     this.distanceMeasure = new SquaredEuclideanDistanceMeasure();
     this.setDistanceMeasure(distanceMeasure);
+  }
+
+  @Override
+  public Configuration serializeInConfiguration() throws IOException {
+    String serializedKMeansConfig = new DefaultStringifier<KMeansConfiguration>(configuration, KMeansConfiguration.class).toString(this);
+
+    Configuration serializedConfig = new Configuration(configuration);
+    serializedConfig.set(SERIALIZATION_KEY, serializedKMeansConfig);
+
+    return serializedConfig;
+  }
+
+  @Override
+  public KMeansConfiguration getFromConfiguration(Configuration configuration) throws IOException {
+    String serializedConfigString = configuration.get(KMeansConfiguration.SERIALIZATION_KEY);
+    return new DefaultStringifier<KMeansConfiguration>(configuration, KMeansConfiguration.class).fromString(serializedConfigString);
   }
 
   @Override
@@ -136,15 +147,7 @@ public class KMeansConfiguration implements Writable {
     }
   }
 
-  public Configuration serialized() throws IOException {
-    String serializedKMeansConfig = new DefaultStringifier<KMeansConfiguration>(configuration, KMeansConfiguration.class).toString(this);
-
-    Configuration serializedConfig = new Configuration(configuration);
-    serializedConfig.set(SERIALIZATION_KEY, serializedKMeansConfig);
-
-    return serializedConfig;
-  }
-
+  // TODO: Remove since serializeInConfiguration is implemented?
   public Configuration getConfiguration() {
     return configuration;
   }
@@ -260,7 +263,8 @@ public class KMeansConfiguration implements Writable {
     if (distanceMeasureClassName != null ? !distanceMeasureClassName.equals(that.distanceMeasureClassName) : that.distanceMeasureClassName != null)
       return false;
     if (inputVectors != null ? !inputVectors.equals(that.inputVectors) : that.inputVectors != null) return false;
-    if (outputClusters != null ? !outputClusters.equals(that.outputClusters) : that.outputClusters != null) return false;
+    if (outputClusters != null ? !outputClusters.equals(that.outputClusters) : that.outputClusters != null)
+      return false;
 
     return true;
   }
@@ -284,15 +288,15 @@ public class KMeansConfiguration implements Writable {
   @Override
   public String toString() {
     return "KMeansConfiguration{" +
-            "inputVectors=" + inputVectors +
-            ", inputClusters=" + inputClusters +
-            ", outputClusters=" + outputClusters +
-            ", outputPoints=" + getOutputPoints() +
-            ", maxIterations=" + maxIterations +
-            ", distanceMeasure=" + distanceMeasure +
-            ", convergenceDelta=" + convergenceDelta +
-            ", distanceMeasureClassName='" + distanceMeasureClassName + '\'' +
-            ", runClustering=" + runClustering +
-            '}';
+        "inputVectors=" + inputVectors +
+        ", inputClusters=" + inputClusters +
+        ", outputClusters=" + outputClusters +
+        ", outputPoints=" + getOutputPoints() +
+        ", maxIterations=" + maxIterations +
+        ", distanceMeasure=" + distanceMeasure +
+        ", convergenceDelta=" + convergenceDelta +
+        ", distanceMeasureClassName='" + distanceMeasureClassName + '\'' +
+        ", runClustering=" + runClustering +
+        '}';
   }
 }

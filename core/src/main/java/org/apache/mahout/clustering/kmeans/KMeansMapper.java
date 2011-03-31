@@ -36,7 +36,7 @@ public class KMeansMapper extends Mapper<WritableComparable<?>, VectorWritable, 
 
   @Override
   protected void map(WritableComparable<?> key, VectorWritable point, Context context)
-          throws IOException, InterruptedException {
+      throws IOException, InterruptedException {
     this.clusterer.emitPointToNearestCluster(point.get(), this.clusters, context);
   }
 
@@ -44,7 +44,7 @@ public class KMeansMapper extends Mapper<WritableComparable<?>, VectorWritable, 
   protected void setup(Context context) throws IOException, InterruptedException {
     super.setup(context);
 
-    KMeansConfiguration kMeansConfiguration = KMeansConfiguration.deserialized(context.getConfiguration());
+    KMeansConfiguration kMeansConfiguration = new KMeansConfiguration().getFromConfiguration(context.getConfiguration());
 
     DistanceMeasure measure = kMeansConfiguration.getDistanceMeasure();
     measure.configure(context.getConfiguration());

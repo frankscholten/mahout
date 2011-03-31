@@ -53,7 +53,7 @@ public class KMeansClusterMapper extends Mapper<WritableComparable<?>, VectorWri
 
     Configuration conf = context.getConfiguration();
 
-    KMeansConfiguration kMeansConfiguration = KMeansConfiguration.deserialized(context.getConfiguration());
+    KMeansConfiguration kMeansConfiguration = new KMeansConfiguration().getFromConfiguration(context.getConfiguration());
 
     DistanceMeasure measure = kMeansConfiguration.getDistanceMeasure();
     measure.configure(conf);

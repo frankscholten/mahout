@@ -56,7 +56,7 @@ public class KMeansReducer extends Reducer<Text, ClusterObservations, Text, Clus
     super.setup(context);
 
     Configuration conf = context.getConfiguration();
-    KMeansConfiguration kMeansConfiguration = KMeansConfiguration.deserialized(conf);
+    KMeansConfiguration kMeansConfiguration = new KMeansConfiguration().getFromConfiguration(conf);
 
     DistanceMeasure measure = kMeansConfiguration.getDistanceMeasure();
     measure.configure(conf);

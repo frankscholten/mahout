@@ -126,7 +126,7 @@ public class KMeansMapReduceAlgorithm implements KMeansAlgorithm {
   }
 
   private Job createKMeansIterationJob(KMeansConfiguration kmeansConfiguration) throws IOException {
-    Job job = new Job(kmeansConfiguration.serialized(), "KMeans iteration using clustersPath: " + kmeansConfiguration.getOutputclusters());
+    Job job = new Job(kmeansConfiguration.serializeInConfiguration(), "KMeans iteration using clustersPath: " + kmeansConfiguration.getOutputclusters());
     job.setMapOutputKeyClass(Text.class);
     job.setMapOutputValueClass(ClusterObservations.class);
     job.setOutputKeyClass(Text.class);
@@ -156,7 +156,7 @@ public class KMeansMapReduceAlgorithm implements KMeansAlgorithm {
       log.info("convergence: {} Input Vectors: {}", kMeansConfiguration.getConvergenceDelta(), VectorWritable.class.getName());
     }
 
-    Job job = new Job(kMeansConfiguration.serialized(), "KMeans Driver points job over input: " + kMeansConfiguration.getInputVectors());
+    Job job = new Job(kMeansConfiguration.serializeInConfiguration(), "KMeans Driver points job over input: " + kMeansConfiguration.getInputVectors());
     job.setInputFormatClass(SequenceFileInputFormat.class);
     job.setOutputFormatClass(SequenceFileOutputFormat.class);
     job.setOutputKeyClass(IntWritable.class);

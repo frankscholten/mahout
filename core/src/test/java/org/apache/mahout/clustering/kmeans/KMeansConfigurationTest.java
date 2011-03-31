@@ -52,7 +52,7 @@ public class KMeansConfigurationTest extends MahoutTestCase {
   }
 
   @Test
-  public void testConstructor_defaultValues() {
+  public void testConstructor_defaultValues() throws IOException {
     KMeansConfiguration kMeansConfiguration = new KMeansConfiguration(configuration, input, output, clusterPath, maxIterations);
 
     assertSame(configuration, kMeansConfiguration.getConfiguration());
@@ -67,32 +67,32 @@ public class KMeansConfigurationTest extends MahoutTestCase {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testConstructor_nullConfiguration() {
+  public void testConstructor_nullConfiguration() throws IOException {
     new KMeansConfiguration(null, input, output, clusterPath, maxIterations);
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testConstructor_nullInput() {
+  public void testConstructor_nullInput() throws IOException {
     new KMeansConfiguration(configuration, null, output, clusterPath, maxIterations);
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testConstructor_nullOutput() {
+  public void testConstructor_nullOutput() throws IOException {
     new KMeansConfiguration(configuration, input, null, clusterPath, maxIterations);
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testConstructor_nullClusterPath() {
+  public void testConstructor_nullClusterPath() throws IOException {
     new KMeansConfiguration(configuration, input, output, null, maxIterations);
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testConstructor_negativeMaxIterations() {
+  public void testConstructor_negativeMaxIterations() throws IOException {
     new KMeansConfiguration(configuration, input, output, clusterPath, -1);
   }
 
   @Test
-  public void testSetters() {
+  public void testSetters() throws IOException {
     KMeansConfiguration kMeansConfiguration = new KMeansConfiguration(configuration, input, output, clusterPath, maxIterations);
 
     double convergenceDelta = 0.8;
@@ -117,27 +117,27 @@ public class KMeansConfigurationTest extends MahoutTestCase {
   }
 
   @Test
-  public void testDeserialized() throws IOException {
+  public void testGetFromConfiguration() throws IOException {
     KMeansConfiguration kMeansConfiguration = new KMeansConfiguration(configuration, input, output, clusterPath, maxIterations);
 
-    Configuration serialized = kMeansConfiguration.serialized();
+    Configuration serialized = kMeansConfiguration.serializeInConfiguration();
 
-    KMeansConfiguration deserialized = KMeansConfiguration.deserialized(serialized);
+    KMeansConfiguration deserialized = new KMeansConfiguration().getFromConfiguration(serialized);
 
     assertEquals(kMeansConfiguration, deserialized);
   }
 
   @Test(expected = RuntimeException.class)
-  public void testDeserialized_unInstantiatiableDistanceMeasureClass() throws IOException {
+  public void testGetFromConfiguration_unInstantiatiableDistanceMeasureClass() throws IOException {
     class PrivateDistanceMeasure extends EuclideanDistanceMeasure {
     }
 
     KMeansConfiguration kMeansConfiguration = new KMeansConfiguration(configuration, input, output, clusterPath, maxIterations);
     kMeansConfiguration.setDistanceMeasure(new PrivateDistanceMeasure());
 
-    Configuration serialized = kMeansConfiguration.serialized();
+    Configuration serialized = kMeansConfiguration.serializeInConfiguration();
 
-    KMeansConfiguration deserialized = KMeansConfiguration.deserialized(serialized);
+    KMeansConfiguration deserialized = new KMeansConfiguration().getFromConfiguration(serialized);
 
     assertEquals(kMeansConfiguration, deserialized);
   }
