@@ -20,7 +20,7 @@ import java.util.Collection;
 /**
  * Sequential implementation of the K-Means algorithm for creating clusters and points.
  */
-public class KMeansSequentialAlgorithm {
+public class KMeansSequentialAlgorithm implements KMeansAlgorithm {
 
   private static final Logger log = LoggerFactory.getLogger(KMeansSequentialAlgorithm.class);
 

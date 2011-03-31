@@ -43,7 +43,7 @@ import java.io.IOException;
 /**
  * MapReduce implementation of the K-Means algorithm for creating clusters and points.
  */
-public class KMeansMapReduceAlgorithm {
+public class KMeansMapReduceAlgorithm implements KMeansAlgorithm {
 
   private static final Logger log = LoggerFactory.getLogger(KMeansMapReduceAlgorithm.class);
 
