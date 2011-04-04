@@ -15,36 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.cf.taste.impl.common;
+package org.apache.mahout.common.iterator;
 
-import com.google.common.base.Preconditions;
-import org.apache.mahout.cf.taste.common.Refreshable;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
 
-import java.util.concurrent.Callable;
+import org.apache.mahout.common.MahoutTestCase;
+import org.junit.Test;
 
-/**
- * Simply calls {@linkRefreshable#refresh(java.util.Collection)} on a {@link Refreshable}.
- *
- * @deprecated Not used by RefreshHelper anymore.
- */
-public final class RefreshRunnable implements Runnable, Callable<Void> {
+public final class IteratorsIteratorTest extends MahoutTestCase {
 
-  private final Refreshable refreshable;
-
-  public RefreshRunnable(Refreshable refreshable) {
-    Preconditions.checkNotNull(refreshable, "Refreshable cannot be null");
-    this.refreshable = refreshable;
+  @Test
+  public void testEmpty() {
+    assertFalse(new IteratorsIterator<Object>(Collections.<Iterator<Object>>emptyList()).hasNext());
   }
 
-  @Override
-  public void run() {
-    refreshable.refresh(null);
-  }
-
-  @Override
-  public Void call() {
-    run();
-    return null;
+  @Test
+  public void testSequences() {
+    Iterator<Integer> it = new IteratorsIterator<Integer>(Arrays.asList(
+      Integers.iterator(3), Integers.iterator(0), Integers.iterator(1)
+    ));
+    assertTrue(it.hasNext());
+    assertEquals(0, (int) it.next());
+    assertEquals(1, (int) it.next());
+    assertEquals(2, (int) it.next());
+    assertEquals(0, (int) it.next());
+    assertFalse(it.hasNext());
   }
 
 }

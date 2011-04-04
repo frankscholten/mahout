@@ -21,13 +21,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configurable;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.io.DefaultStringifier;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -76,19 +70,15 @@ public class BayesTfIdfDriver implements BayesJob {
     
     conf.setOutputFormat(BayesTfIdfOutputFormat.class);
     
-    conf
-        .set("io.serializations",
-          "org.apache.hadoop.io.serializer.JavaSerialization,org.apache.hadoop.io.serializer.WritableSerialization");
+    conf.set("io.serializations",
+             "org.apache.hadoop.io.serializer.JavaSerialization,"
+                 + "org.apache.hadoop.io.serializer.WritableSerialization");
     // Dont ever forget this. People should keep track of how hadoop conf
     // parameters and make or break a piece of code
-    
-    FileSystem dfs = FileSystem.get(outPath.toUri(), conf);
-    HadoopUtil.overwriteOutput(outPath);
-    
+    HadoopUtil.delete(conf, outPath);
     Path interimFile = new Path(output, "trainer-docCount/part-*");
     
-    Map<String,Double> labelDocumentCounts = SequenceFileModelReader.readLabelDocumentCounts(dfs,
-      interimFile, conf);
+    Map<String,Double> labelDocumentCounts = SequenceFileModelReader.readLabelDocumentCounts(interimFile, conf);
     
     DefaultStringifier<Map<String,Double>> mapStringifier = new DefaultStringifier<Map<String,Double>>(conf,
         GenericsUtil.getClass(labelDocumentCounts));
@@ -100,29 +90,6 @@ public class BayesTfIdfDriver implements BayesJob {
     
     conf.set("cnaivebayes.labelDocumentCounts", labelDocumentCountString);
     log.info(params.print());
-    if (params.get("dataSource").equals("hbase")) {
-      String tableName = output.toString();
-      HBaseConfiguration hc = new HBaseConfiguration(new Configuration());
-      HTableDescriptor ht = new HTableDescriptor(tableName);
-      HColumnDescriptor hcd = new HColumnDescriptor(BayesConstants.HBASE_COLUMN_FAMILY + ':');
-      hcd.setBloomfilter(true);
-      hcd.setInMemory(true);
-      hcd.setMaxVersions(1);
-      hcd.setBlockCacheEnabled(true);
-      ht.addFamily(hcd);
-      
-      log.info("Connecting to hbase...");
-      HBaseAdmin hba = new HBaseAdmin(hc);
-      log.info("Creating Table {}", output);
-      
-      if (hba.tableExists(tableName)) {
-        hba.disableTable(tableName);
-        hba.deleteTable(tableName);
-        hba.majorCompact(".META.");
-      }
-      hba.createTable(ht);
-      conf.set("output.table", tableName);
-    }
     conf.set("bayes.parameters", params.toString());
     
     client.setConf(conf);

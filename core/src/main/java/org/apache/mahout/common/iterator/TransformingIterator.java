@@ -15,18 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.cf.taste.example.kddcup;
+package org.apache.mahout.common.iterator;
 
-import org.apache.mahout.cf.taste.common.TasteException;
-import org.apache.mahout.cf.taste.eval.RecommenderBuilder;
-import org.apache.mahout.cf.taste.model.DataModel;
-import org.apache.mahout.cf.taste.recommender.Recommender;
+import java.util.Iterator;
 
-public final class KDDCupRecommenderBuilder implements RecommenderBuilder {
+/**
+ * An iterator that delegates to another iterator but transforms its values.
+ */
+public abstract class TransformingIterator<I,O> implements Iterator<O> {
+
+  private final Iterator<? extends I> delegate;
+
+  protected TransformingIterator(Iterator<? extends I> delegate) {
+    this.delegate = delegate;
+  }
+
+  /**
+   * @param in underlying iterator's value
+   * @return the transformed value returned from this iterator
+   */
+  protected abstract O transform(I in);
   
   @Override
-  public Recommender buildRecommender(DataModel dataModel) throws TasteException {
-    return new KDDCupRecommender(dataModel);
+  public final boolean hasNext() {
+    return delegate.hasNext();
+  }
+  
+  @Override
+  public final O next() {
+    return transform(delegate.next());
+  }
+  
+  @Override
+  public final void remove() {
+    delegate.remove();
   }
   
 }

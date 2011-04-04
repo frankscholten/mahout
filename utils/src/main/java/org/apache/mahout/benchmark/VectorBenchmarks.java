@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -54,9 +55,11 @@ import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.common.distance.ManhattanDistanceMeasure;
 import org.apache.mahout.common.distance.SquaredEuclideanDistanceMeasure;
 import org.apache.mahout.common.distance.TanimotoDistanceMeasure;
+import org.apache.mahout.common.iterator.sequencefile.SequenceFileValueIterator;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.RandomAccessSparseVector;
 import org.apache.mahout.math.SequentialAccessSparseVector;
+import org.apache.mahout.math.SparseMatrix;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
 import org.slf4j.Logger;
@@ -68,6 +71,8 @@ public class VectorBenchmarks implements Summarizable {
   private static final Pattern TAB_PATTERN = Pattern.compile("\t");
 
   private final Vector[][] vectors;
+  private final Vector[] clusters;
+  private final SparseMatrix clusterDistances;
   private final List<Vector> randomVectors = new ArrayList<Vector>();
   private final List<int[]> randomVectorIndices = new ArrayList<int[]>();
   private final List<double[]> randomVectorValues = new ArrayList<double[]>();
@@ -78,13 +83,14 @@ public class VectorBenchmarks implements Summarizable {
   private final int opsPerUnit;
   private final Map<String,Integer> implType = new HashMap<String,Integer>();
   private final Map<String,List<String[]>> statsMap = new HashMap<String,List<String[]>>();
- 
+  private final int numClusters;
   
-  public VectorBenchmarks(int cardinality, int sparsity, int numVectors, int loop, int opsPerUnit) {
+  public VectorBenchmarks(int cardinality, int sparsity, int numVectors, int numClusters, int loop, int opsPerUnit) {
     Random r = RandomUtils.getRandom();
     this.cardinality = cardinality;
     this.sparsity = sparsity;
     this.numVectors = numVectors;
+    this.numClusters = numClusters;
     this.loop = loop;
     this.opsPerUnit = opsPerUnit;
     for (int i = 0; i < numVectors; i++) {
@@ -108,7 +114,8 @@ public class VectorBenchmarks implements Summarizable {
       randomVectors.add(v);
     }
     vectors = new Vector[3][numVectors];
-    
+    clusters = new Vector[numClusters];
+    clusterDistances = new SparseMatrix(numClusters, numClusters);
   }
   
   private void printStats(TimingStatistics stats, String benchmarkName, String implName, String content) {
@@ -222,14 +229,23 @@ public class VectorBenchmarks implements Summarizable {
     }
     printStats(stats, "Create (incrementally)", "RandSparseVector");
 
+//    stats = new TimingStatistics();
+//    for (int l = 0; l < loop; l++) {
+//      for (int i = 0; i < numVectors; i++) {
+//        vectors[2][i] = new SequentialAccessSparseVector(cardinality);
+//        buildVectorIncrementally(stats, i, vectors[2][i], false);
+//      }
+//    }
+//    printStats(stats, "Create (incrementally)", "SeqSparseVector");
+    
     stats = new TimingStatistics();
     for (int l = 0; l < loop; l++) {
-      for (int i = 0; i < numVectors; i++) {
-        vectors[2][i] = new SequentialAccessSparseVector(cardinality);
-        buildVectorIncrementally(stats, i, vectors[2][i], false);
+      for (int i = 0; i < numClusters; i++) {
+        clusters[i] = new RandomAccessSparseVector(cardinality);
+        buildVectorIncrementally(stats, i, clusters[i], false);
       }
     }
-    printStats(stats, "Create (incrementally)", "SeqSparseVector");
+    printStats(stats, "Create (incrementally)", "Clusters");
   }
   
   public void cloneBenchmark() {
@@ -317,51 +333,21 @@ public class VectorBenchmarks implements Summarizable {
   }
   
   public void deserializeBenchmark() throws IOException {
-    Configuration conf = new Configuration();
-    FileSystem fs = FileSystem.get(conf);
-    
-    SequenceFile.Reader reader = new SequenceFile.Reader(fs,
-      new Path("/tmp/dense-vector"), conf);
+    doDeserializeBenchmark("DenseVector", "/tmp/dense-vector");
+    doDeserializeBenchmark("RandSparseVector", "/tmp/randsparse-vector");
+    doDeserializeBenchmark("SeqSparseVector", "/tmp/seqsparse-vector");
+  }
 
-    Writable one = new IntWritable(0);
-    Writable vec = new VectorWritable();
+  private void doDeserializeBenchmark(String name, String pathString) throws IOException {
     TimingStatistics stats = new TimingStatistics();
-    for (int l = 0; l < loop; l++) {
-      for (int i = 0; i < numVectors; i++) {
-        TimingStatistics.Call call = stats.newCall();
-        reader.next(one, vec);
-        call.end();
-      }
+    TimingStatistics.Call call = stats.newCall();
+    Iterator<?> iterator = new SequenceFileValueIterator<Writable>(new Path(pathString), true, new Configuration());
+    while (iterator.hasNext()) {
+      iterator.next();
+      call.end();
+      call = stats.newCall();
     }
-    reader.close();
-    printStats(stats, "Deserialize", "DenseVector");
-    
-    reader = new SequenceFile.Reader(fs,
-      new Path("/tmp/randsparse-vector"), conf);
-    stats = new TimingStatistics();
-    for (int l = 0; l < loop; l++) {
-      for (int i = 0; i < numVectors; i++) {
-        TimingStatistics.Call call = stats.newCall();
-        reader.next(one, vec);
-        call.end();
-      }
-    }
-    reader.close();
-    printStats(stats, "Deserialize", "RandSparseVector");
-    
-    reader = new SequenceFile.Reader(fs,
-      new Path("/tmp/seqsparse-vector"), conf);
-    stats = new TimingStatistics();
-    for (int l = 0; l < loop; l++) {
-      for (int i = 0; i < numVectors; i++) {
-        TimingStatistics.Call call = stats.newCall();
-        reader.next(one, vec);
-        call.end();
-      }
-    }
-    reader.close();
-    printStats(stats, "Deserialize", "SeqSparseVector");
-    
+    printStats(stats, "Deserialize", name);
   }
   
   public void dotBenchmark() {
@@ -467,7 +453,73 @@ public class VectorBenchmarks implements Summarizable {
 
 
   }
-  
+
+
+  public void closestCentroidBenchmark(DistanceMeasure measure) {
+
+    for (int i = 0; i < numClusters; i++) {
+      for (int j = 0; j < numClusters; j++) {
+        double distance = Double.POSITIVE_INFINITY;
+        if (i != j) {
+          distance = measure.distance(clusters[i], clusters[j]);
+        }
+        clusterDistances.setQuick(i, j, distance);
+      }
+    }
+
+    long distanceCalculations = 0;
+    TimingStatistics stats = new TimingStatistics();
+    for (int l = 0; l < loop; l++) {
+      TimingStatistics.Call call = stats.newCall();
+      for (int i = 0; i < numVectors; i++) {
+        Vector vector = vectors[1][i];
+        double minDistance = Double.MAX_VALUE;
+        for (int k = 0; k < numClusters; k++) {
+          double distance = measure.distance(vector, clusters[k]);
+          distanceCalculations++;
+          if (distance < minDistance) {
+            minDistance = distance;
+          }
+        }
+      }
+      call.end();
+    }
+    printStats(stats,
+               measure.getClass().getName(),
+               "Closest center without Elkan's trick",
+               "distanceCalculations = " + distanceCalculations);
+
+
+    distanceCalculations = 0;
+    stats = new TimingStatistics();
+    Random rand = RandomUtils.getRandom();
+    //rand.setSeed(System.currentTimeMillis());
+    for (int l = 0; l < loop; l++) {
+      TimingStatistics.Call call = stats.newCall();
+      for (int i = 0; i < numVectors; i++) {
+        Vector vector = vectors[1][i];
+        int closestCentroid = rand.nextInt(numClusters);
+        double dist = measure.distance(vector, clusters[closestCentroid]);
+        distanceCalculations++;
+        for (int k = 0; k < numClusters; k++) {
+          if (closestCentroid != k) {
+            double centroidDist = clusterDistances.getQuick(k, closestCentroid);
+            if (centroidDist < 2 * dist) {
+              dist = measure.distance(vector, clusters[k]);
+              closestCentroid = k;
+              distanceCalculations++;
+            }
+          }
+        }
+      }
+      call.end();
+    }
+    printStats(stats,
+               measure.getClass().getName(),
+               "Closest center with Elkan's trick",
+               "distanceCalculations = " + distanceCalculations);
+  }
+
   public void distanceMeasureBenchmark(DistanceMeasure measure) {
     double result = 0;
     TimingStatistics stats = new TimingStatistics();
@@ -648,12 +700,16 @@ public class VectorBenchmarks implements Summarizable {
     Option vectorSizeOpt = obuilder.withLongName("vectorSize").withRequired(false).withArgument(
       abuilder.withName("vs").withMinimum(1).withMaximum(1).create()).withDescription(
       "Cardinality of the vector. Default 1000").withShortName("vs").create();
+    
     Option vectorSparsityOpt = obuilder.withLongName("sparsity").withRequired(false).withArgument(
       abuilder.withName("sp").withMinimum(1).withMaximum(1).create()).withDescription(
       "Sparsity of the vector. Default 1000").withShortName("sp").create();
     Option numVectorsOpt = obuilder.withLongName("numVectors").withRequired(false).withArgument(
       abuilder.withName("nv").withMinimum(1).withMaximum(1).create()).withDescription(
       "Number of Vectors to create. Default: 100").withShortName("nv").create();
+    Option numClustersOpt = obuilder.withLongName("numClusters").withRequired(false).withArgument(
+  	      abuilder.withName("vs").withMinimum(1).withMaximum(1).create()).withDescription(
+  	      "Number of Vectors to create. Default: 10").withShortName("vs").create();
     Option loopOpt = obuilder.withLongName("loop").withRequired(false).withArgument(
       abuilder.withName("loop").withMinimum(1).withMaximum(1).create()).withDescription(
       "Number of times to loop. Default: 200").withShortName("l").create();
@@ -682,6 +738,11 @@ public class VectorBenchmarks implements Summarizable {
       if (cmdLine.hasOption(vectorSizeOpt)) {
         cardinality = Integer.parseInt((String) cmdLine.getValue(vectorSizeOpt));
         
+      }    
+      
+      int numClusters=25;
+      if (cmdLine.hasOption(numClustersOpt)) {
+    	  numClusters = Integer.parseInt((String) cmdLine.getValue(numClustersOpt));          
       }
 
       int sparsity = 1000;
@@ -704,7 +765,7 @@ public class VectorBenchmarks implements Summarizable {
         numOps = Integer.parseInt((String) cmdLine.getValue(numOpsOpt));
         
       }
-      VectorBenchmarks mark = new VectorBenchmarks(cardinality, sparsity, numVectors, loop, numOps);
+      VectorBenchmarks mark = new VectorBenchmarks(cardinality, sparsity, numVectors, numClusters, loop, numOps);
       mark.createBenchmark();
       mark.incrementalCreateBenchmark();
       mark.cloneBenchmark();
@@ -716,6 +777,12 @@ public class VectorBenchmarks implements Summarizable {
       mark.distanceMeasureBenchmark(new EuclideanDistanceMeasure());
       mark.distanceMeasureBenchmark(new ManhattanDistanceMeasure());
       mark.distanceMeasureBenchmark(new TanimotoDistanceMeasure());
+      
+      mark.closestCentroidBenchmark(new CosineDistanceMeasure());
+      mark.closestCentroidBenchmark(new SquaredEuclideanDistanceMeasure());
+      mark.closestCentroidBenchmark(new EuclideanDistanceMeasure());
+      mark.closestCentroidBenchmark(new ManhattanDistanceMeasure());
+      mark.closestCentroidBenchmark(new TanimotoDistanceMeasure());
       
       log.info("\n{}", mark.summarize());
     } catch (OptionException e) {

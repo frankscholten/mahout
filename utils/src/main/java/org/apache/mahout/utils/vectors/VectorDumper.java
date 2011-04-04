@@ -27,10 +27,11 @@ import org.apache.commons.cli2.builder.GroupBuilder;
 import org.apache.commons.cli2.commandline.Parser;
 import org.apache.commons.cli2.util.HelpFormatter;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Writable;
+import org.apache.mahout.common.Pair;
+import org.apache.mahout.common.iterator.sequencefile.SequenceFileIterable;
 import org.apache.mahout.math.NamedVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
@@ -77,16 +78,22 @@ public final class VectorDumper {
     Option dictTypeOpt = obuilder.withLongName("dictionaryType").withRequired(false).withArgument(
             abuilder.withName("dictionaryType").withMinimum(1).withMaximum(1).create()).withDescription(
             "The dictionary file type (text|sequencefile)").withShortName("dt").create();
-    Option centroidJSonOpt = obuilder.withLongName("json").withRequired(false).withDescription(
-            "Output the centroid as JSON.  Otherwise it substitutes in the terms for vector cell entries")
+    Option jsonOpt = obuilder.withLongName("json").withRequired(false).withDescription(
+            "Output the Vector as JSON.  Otherwise it substitutes in the terms for vector cell entries")
             .withShortName("j").create();
+    Option csvOpt = obuilder.withLongName("csv").withRequired(false).withDescription(
+            "Output the Vector as CSV.  Otherwise it substitutes in the terms for vector cell entries")
+            .withShortName("c").create();
+    Option namesAsCommentsOpt = obuilder.withLongName("namesAsComments").withRequired(false).withDescription(
+            "If using CSV output, optionally add a comment line for each NamedVector (if the vector is one) printing out the name")
+            .withShortName("n").create();
     Option sizeOpt = obuilder.withLongName("sizeOnly").withRequired(false).
             withDescription("Dump only the size of the vector").withShortName("sz").create();
     Option helpOpt = obuilder.withLongName("help").withDescription("Print out help").withShortName("h")
             .create();
 
     Group group = gbuilder.withName("Options").withOption(seqOpt).withOption(outputOpt).withOption(
-            dictTypeOpt).withOption(dictOpt).withOption(centroidJSonOpt).withOption(vectorAsKeyOpt).withOption(
+            dictTypeOpt).withOption(dictOpt).withOption(csvOpt).withOption(vectorAsKeyOpt).withOption(
             printKeyOpt).withOption(sizeOpt).create();
 
     try {
@@ -105,8 +112,6 @@ public final class VectorDumper {
         //System.out.println("Input Path: " + path); interferes with output?
         Configuration conf = new Configuration();
 
-        FileSystem fs = FileSystem.get(path.toUri(), conf);
-
         String dictionaryType = "text";
         if (cmdLine.hasOption(dictTypeOpt)) {
           dictionaryType = cmdLine.getValue(dictTypeOpt).toString();
@@ -117,59 +122,74 @@ public final class VectorDumper {
           if ("text".equals(dictionaryType)) {
             dictionary = VectorHelper.loadTermDictionary(new File(cmdLine.getValue(dictOpt).toString()));
           } else if ("sequencefile".equals(dictionaryType)) {
-            dictionary = VectorHelper.loadTermDictionary(conf, fs, cmdLine.getValue(dictOpt).toString());
+            dictionary = VectorHelper.loadTermDictionary(conf, cmdLine.getValue(dictOpt).toString());
           } else {
             throw new OptionException(dictTypeOpt);
           }
         }
-        boolean useJSON = cmdLine.hasOption(centroidJSonOpt);
-        boolean sizeOnly = cmdLine.hasOption(sizeOpt);
-        SequenceFile.Reader reader = new SequenceFile.Reader(fs, path, conf);
+        boolean useJSON = cmdLine.hasOption(jsonOpt);
+        boolean useCSV = cmdLine.hasOption(csvOpt);
 
-        Writable keyWritable = reader.getKeyClass().asSubclass(Writable.class).newInstance();
-        Writable valueWritable = reader.getValueClass().asSubclass(Writable.class).newInstance();
+        boolean sizeOnly = cmdLine.hasOption(sizeOpt);
+        boolean namesAsComments = cmdLine.hasOption(namesAsCommentsOpt);
         boolean transposeKeyValue = cmdLine.hasOption(vectorAsKeyOpt);
+        Writer writer;
+        if (cmdLine.hasOption(outputOpt)) {
+          writer = new OutputStreamWriter(
+              new FileOutputStream(new File(cmdLine.getValue(outputOpt).toString())), Charset.forName("UTF-8"));
+        } else {
+          writer = new OutputStreamWriter(System.out);
+        }
         try {
-          Writer writer;
-          if (cmdLine.hasOption(outputOpt)) {
-            writer = new OutputStreamWriter(
-                new FileOutputStream(new File(cmdLine.getValue(outputOpt).toString())), Charset.forName("UTF-8"));
-          } else {
-            writer = new OutputStreamWriter(System.out);
-          }
-          try {
-            boolean printKey = cmdLine.hasOption(printKeyOpt);
-            long i = 0;
-            while (reader.next(keyWritable, valueWritable)) {
-              if (printKey) {
-                Writable notTheVectorWritable = transposeKeyValue ? valueWritable : keyWritable;
-                writer.write(notTheVectorWritable.toString());
-                writer.write('\t');
-              }
-              VectorWritable vectorWritable = (VectorWritable) (transposeKeyValue ? keyWritable : valueWritable);
-              Vector vector = vectorWritable.get();
-              if (sizeOnly) {
-                if (vector instanceof NamedVector) {
-                  writer.write(((NamedVector) vector).getName());
-                  writer.write(":");
-                } else {
-                  writer.write(String.valueOf(i++));
-                  writer.write(":");
-                }
-                writer.write(String.valueOf(vector.size()));
-                writer.write('\n');
-              } else {
-                String fmtStr = useJSON ? vector.asFormatString() : VectorHelper.vectorToString(vector, dictionary);
-                writer.write(fmtStr);
-                writer.write('\n');
+          boolean printKey = cmdLine.hasOption(printKeyOpt);
+          if (useCSV && dictionary != null){
+            writer.write("#");
+            for (int j = 0; j < dictionary.length; j++) {
+              writer.write(dictionary[j]);
+              if (j < dictionary.length - 1){
+                writer.write(',');
               }
             }
-          } finally {
-            writer.close();
+            writer.write('\n');
+          }
+          long i = 0;
+          for (Pair<Writable,Writable> record : new SequenceFileIterable<Writable, Writable>(path, true, conf)) {
+            Writable keyWritable = record.getFirst();
+            Writable valueWritable = record.getSecond();
+            if (printKey) {
+              Writable notTheVectorWritable = transposeKeyValue ? valueWritable : keyWritable;
+              writer.write(notTheVectorWritable.toString());
+              writer.write('\t');
+            }
+            VectorWritable vectorWritable = (VectorWritable) (transposeKeyValue ? keyWritable : valueWritable);
+            Vector vector = vectorWritable.get();
+            if (sizeOnly) {
+              if (vector instanceof NamedVector) {
+                writer.write(((NamedVector) vector).getName());
+                writer.write(":");
+              } else {
+                writer.write(String.valueOf(i++));
+                writer.write(":");
+              }
+              writer.write(String.valueOf(vector.size()));
+              writer.write('\n');
+            } else {
+              String fmtStr;
+              if (useJSON){
+                fmtStr = VectorHelper.vectorToJSONString(vector, dictionary);
+              } else if (useCSV){
+                fmtStr = VectorHelper.vectorToCSVString(vector, namesAsComments);
+              } else {
+                fmtStr = vector.asFormatString();
+              }
+              writer.write(fmtStr);
+              writer.write('\n');
+            }
           }
         } finally {
-          reader.close();
+          writer.close();
         }
+
       }
 
     } catch (OptionException e) {
