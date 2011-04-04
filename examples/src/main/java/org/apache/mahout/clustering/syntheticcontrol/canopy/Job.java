@@ -75,7 +75,7 @@ public final class Job extends AbstractJob {
    *          the canopy T2 threshold
    */
   private static void run(Path input, Path output, DistanceMeasure measure, double t1, double t2)
-    throws IOException, InterruptedException, ClassNotFoundException {
+      throws IOException, InterruptedException, ClassNotFoundException, IllegalAccessException, InstantiationException {
     Path directoryContainingConvertedInput = new Path(output, DIRECTORY_CONTAINING_CONVERTED_INPUT);
     InputDriver.runJob(input, directoryContainingConvertedInput, "org.apache.mahout.math.RandomAccessSparseVector");
     CanopyDriver.run(new Configuration(), directoryContainingConvertedInput, output, measure, t1, t2, true, false);

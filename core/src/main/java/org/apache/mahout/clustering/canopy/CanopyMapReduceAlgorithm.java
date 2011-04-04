@@ -97,7 +97,7 @@ public class CanopyMapReduceAlgorithm {
     FileInputFormat.addInputPath(job, canopyConfiguration.getInputPath());
     FileOutputFormat.setOutputPath(job, canopyConfiguration.getPointsPath());
 
-    HadoopUtil.overwriteOutput(canopyConfiguration.getPointsPath());
+    HadoopUtil.delete(canopyConfiguration.getConfiguration(), canopyConfiguration.getPointsPath());
 
     if (!job.waitForCompletion(true)) {
       throw new InterruptedException("Canopy Clustering failed processing " + canopyConfiguration.getPointsPath().toString());

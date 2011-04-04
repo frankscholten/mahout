@@ -155,7 +155,7 @@ public final class Job extends AbstractJob {
                   int maxIterations,
                   float fuzziness,
                   double convergenceDelta)
-    throws IOException, InterruptedException, ClassNotFoundException {
+      throws IOException, InterruptedException, ClassNotFoundException, IllegalAccessException, InstantiationException {
     Path directoryContainingConvertedInput = new Path(output, DIRECTORY_CONTAINING_CONVERTED_INPUT);
     log.info("Preparing Input");
     InputDriver.runJob(input, directoryContainingConvertedInput, "org.apache.mahout.math.RandomAccessSparseVector");

@@ -88,7 +88,7 @@ public class KMeansMapReduceAlgorithm implements KMeansAlgorithm {
   }
 
   private boolean isConverged(KMeansConfiguration kMeansConfiguration) throws IOException, ClassNotFoundException, InterruptedException {
-    HadoopUtil.overwriteOutput(kMeansConfiguration.getOutputclusters());
+    HadoopUtil.delete(kMeansConfiguration.getConfiguration(), kMeansConfiguration.getOutputclusters());
     Configuration configuration = kMeansConfiguration.getConfiguration();
 
     Job job = createKMeansIterationJob(kMeansConfiguration);
@@ -163,7 +163,7 @@ public class KMeansMapReduceAlgorithm implements KMeansAlgorithm {
     job.setOutputValueClass(WeightedVectorWritable.class);
 
     FileInputFormat.setInputPaths(job, kMeansConfiguration.getInputVectors());
-    HadoopUtil.overwriteOutput(kMeansConfiguration.getOutputPoints());
+    HadoopUtil.delete(kMeansConfiguration.getConfiguration(), kMeansConfiguration.getOutputPoints());
     FileOutputFormat.setOutputPath(job, kMeansConfiguration.getOutputPoints());
 
     job.setMapperClass(KMeansClusterMapper.class);

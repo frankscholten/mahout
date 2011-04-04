@@ -40,7 +40,6 @@ import org.apache.mahout.clustering.AbstractCluster;
 import org.apache.mahout.clustering.Cluster;
 import org.apache.mahout.clustering.WeightedVectorWritable;
 import org.apache.mahout.clustering.kmeans.KMeansConfiguration;
-import org.apache.mahout.clustering.kmeans.OutputLogFilter;
 import org.apache.mahout.common.AbstractJob;
 import org.apache.mahout.common.HadoopUtil;
 import org.apache.mahout.common.Pair;
@@ -90,7 +89,7 @@ public class MeanShiftCanopyDriver extends AbstractJob {
     Path input = getInputPath();
     Path output = getOutputPath();
     if (hasOption(DefaultOptionCreator.OVERWRITE_OPTION)) {
-      HadoopUtil.overwriteOutput(output);
+      HadoopUtil.delete(getConf(), output);
     }
     String measureClass = getOption(DefaultOptionCreator.DISTANCE_MEASURE_OPTION);
     double t1 = Double.parseDouble(getOption(DefaultOptionCreator.T1_OPTION));
