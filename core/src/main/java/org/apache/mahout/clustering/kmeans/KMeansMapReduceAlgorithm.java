@@ -21,6 +21,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
@@ -34,6 +35,9 @@ import org.apache.mahout.clustering.AbstractCluster;
 import org.apache.mahout.clustering.ClusterObservations;
 import org.apache.mahout.clustering.WeightedVectorWritable;
 import org.apache.mahout.common.HadoopUtil;
+import org.apache.mahout.common.Pair;
+import org.apache.mahout.common.iterator.sequencefile.PathFilters;
+import org.apache.mahout.common.iterator.sequencefile.SequenceFileIterable;
 import org.apache.mahout.math.VectorWritable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,6 +93,7 @@ public class KMeansMapReduceAlgorithm implements KMeansAlgorithm {
 
   private boolean isConverged(KMeansConfiguration kMeansConfiguration) throws IOException, ClassNotFoundException, InterruptedException {
     HadoopUtil.delete(kMeansConfiguration.getConfiguration(), kMeansConfiguration.getOutputclusters());
+
     Configuration configuration = kMeansConfiguration.getConfiguration();
 
     Job job = createKMeansIterationJob(kMeansConfiguration);
@@ -96,29 +101,16 @@ public class KMeansMapReduceAlgorithm implements KMeansAlgorithm {
     if (!job.waitForCompletion(true)) {
       throw new InterruptedException("K-Means Iteration failed processing " + kMeansConfiguration.getInputVectors().toString());
     }
+
     FileSystem fs = FileSystem.get(kMeansConfiguration.getOutputclusters().toUri(), configuration);
 
-    FileStatus[] parts = fs.listStatus(kMeansConfiguration.getOutputclusters());
+    FileStatus[] parts = fs.listStatus(kMeansConfiguration.getOutputclusters(), PathFilters.partFilter());
+
     for (FileStatus part : parts) {
-      String name = part.getPath().getName();
-      if (name.startsWith("part") && !name.endsWith(".crc")) {
-        SequenceFile.Reader reader = new SequenceFile.Reader(fs, part.getPath(), configuration);
-        try {
-          Writable key = reader.getKeyClass().asSubclass(Writable.class).newInstance();
-          Cluster value = new Cluster();
-          while (reader.next(key, value)) {
-            if (!value.isConverged()) {
-              return false;
-            }
-          }
-        } catch (InstantiationException e) { // shouldn't happen
-          log.error("Exception", e);
-          throw new IllegalStateException(e);
-        } catch (IllegalAccessException e) {
-          log.error("Exception", e);
-          throw new IllegalStateException(e);
-        } finally {
-          reader.close();
+      SequenceFileIterable<Writable, Cluster> iterable = new SequenceFileIterable<Writable, Cluster>(part.getPath(), configuration);
+      for (Pair<Writable, Cluster> pair : iterable) {
+        if (!pair.getSecond().isConverged()) {
+          return false;
         }
       }
     }

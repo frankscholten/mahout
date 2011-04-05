@@ -10,6 +10,9 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.OutputLogFilter;
 import org.apache.mahout.clustering.AbstractCluster;
 import org.apache.mahout.clustering.WeightedVectorWritable;
+import org.apache.mahout.common.Pair;
+import org.apache.mahout.common.iterator.sequencefile.PathFilters;
+import org.apache.mahout.common.iterator.sequencefile.SequenceFileIterable;
 import org.apache.mahout.math.VectorWritable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,9 +46,11 @@ public class KMeansSequentialAlgorithm implements KMeansAlgorithm {
       log.info("K-Means Iteration {}", iteration);
 
       FileSystem fs = FileSystem.get(kMeansConfiguration.getInputVectors().toUri(), kMeansConfiguration.getConfiguration());
-      FileStatus[] status = fs.listStatus(kMeansConfiguration.getInputVectors(), new OutputLogFilter());
-      for (FileStatus s : status) {
-        addPointToNearestCluster(kMeansConfiguration, clusterer, clusters, fs, s);
+
+      FileStatus[] statuses = fs.listStatus(kMeansConfiguration.getInputVectors(), PathFilters.logsCRCFilter());
+
+      for (FileStatus status : statuses) {
+        addPointToNearestCluster(kMeansConfiguration, clusterer, clusters, status);
       }
       converged = clusterer.testConvergence(clusters, kMeansConfiguration.getConvergenceDelta());
 
@@ -82,24 +87,22 @@ public class KMeansSequentialAlgorithm implements KMeansAlgorithm {
       }
 
       FileSystem fs = FileSystem.get(kMeansConfiguration.getInputVectors().toUri(), kMeansConfiguration.getConfiguration());
-      FileStatus[] statuses = fs.listStatus(kMeansConfiguration.getInputVectors(), new OutputLogFilter());
+      FileStatus[] parts = fs.listStatus(kMeansConfiguration.getInputVectors(), PathFilters.logsCRCFilter());
+
       int part = 0;
-      for (FileStatus status : statuses) {
-        SequenceFile.Reader reader = new SequenceFile.Reader(fs, status.getPath(), kMeansConfiguration.getConfiguration());
+      for (FileStatus status : parts) {
         SequenceFile.Writer writer = new SequenceFile.Writer(fs,
             kMeansConfiguration.getConfiguration(),
             new Path(kMeansConfiguration.getOutputPoints(), "part-m-" + part),
             IntWritable.class,
             WeightedVectorWritable.class);
+
         try {
-          Writable key = reader.getKeyClass().asSubclass(Writable.class).newInstance();
-          VectorWritable vw = reader.getValueClass().asSubclass(VectorWritable.class).newInstance();
-          while (reader.next(key, vw)) {
-            clusterer.emitPointToNearestCluster(vw.get(), clusters, writer);
-            vw = reader.getValueClass().asSubclass(VectorWritable.class).newInstance();
+          SequenceFileIterable<Writable, VectorWritable> iterable = new SequenceFileIterable<Writable, VectorWritable>(status.getPath(), kMeansConfiguration.getConfiguration());
+          for (Pair<Writable, VectorWritable> pair : iterable){
+            clusterer.emitPointToNearestCluster(pair.getSecond().get(), clusters, writer);
           }
         } finally {
-          reader.close();
           writer.close();
         }
       }
@@ -107,17 +110,11 @@ public class KMeansSequentialAlgorithm implements KMeansAlgorithm {
     return kMeansConfiguration;
   }
 
-  private void addPointToNearestCluster(KMeansConfiguration kMeansConfiguration, KMeansClusterer clusterer, Collection<Cluster> clusters, FileSystem fs, FileStatus s) throws IOException, InstantiationException, IllegalAccessException {
-    SequenceFile.Reader reader = new SequenceFile.Reader(fs, s.getPath(), kMeansConfiguration.getConfiguration());
-    try {
-      Writable key = reader.getKeyClass().asSubclass(Writable.class).newInstance();
-      VectorWritable vw = reader.getValueClass().asSubclass(VectorWritable.class).newInstance();
-      while (reader.next(key, vw)) {
-        clusterer.addPointToNearestCluster(vw.get(), clusters);
-        vw = reader.getValueClass().asSubclass(VectorWritable.class).newInstance();
-      }
-    } finally {
-      reader.close();
+  private void addPointToNearestCluster(KMeansConfiguration kMeansConfiguration, KMeansClusterer clusterer, Collection<Cluster> clusters, FileStatus status) throws IOException, InstantiationException, IllegalAccessException {
+    SequenceFileIterable<Writable, VectorWritable> iterable = new SequenceFileIterable<Writable, VectorWritable>(status.getPath(), kMeansConfiguration.getConfiguration());
+
+    for (Pair<Writable, VectorWritable> pair : iterable) {
+      clusterer.addPointToNearestCluster(pair.getSecond().get(), clusters);
     }
   }
 }
