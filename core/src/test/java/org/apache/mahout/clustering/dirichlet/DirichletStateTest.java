@@ -1,6 +1,7 @@
 package org.apache.mahout.clustering.dirichlet;
 
 import org.apache.mahout.clustering.Cluster;
+import org.apache.mahout.clustering.Model;
 import org.apache.mahout.clustering.ModelDistribution;
 import org.apache.mahout.clustering.dirichlet.models.DistanceMeasureClusterDistribution;
 import org.apache.mahout.clustering.dirichlet.models.DistributionDescription;
@@ -30,24 +31,29 @@ public class DirichletStateTest extends MahoutTestCase {
     private List<DirichletCluster> clusters;
     private VectorWritable prototype;
 
+    private GaussianCluster model1;
+    private GaussianCluster model2;
+    private GaussianCluster model3;
+
     @Before
     public void before() {
         vector = new DenseVector(new double[]{0.1, 0.5});
         prototype = new VectorWritable(vector);
         modelDistribution = new GaussianClusterDistribution(prototype);
-        numClusters = 10;
-        alpha0 = 0.2;
+        alpha0 = 0.001;
 
-        GaussianCluster model1 = new GaussianCluster(new DenseVector(new double[]{0.1, 0.2}), 0);
-        GaussianCluster model2 = new GaussianCluster(new DenseVector(new double[]{0.3, 0.4}), 1);
-        GaussianCluster model3 = new GaussianCluster(new DenseVector(new double[]{0.4, 0.5}), 2);
+        model1 = new GaussianCluster(new DenseVector(new double[]{0.1, 0.2}), 0);
+        model2 = new GaussianCluster(new DenseVector(new double[]{0.3, 0.4}), 1);
+        model3 = new GaussianCluster(new DenseVector(new double[]{0.4, 0.5}), 2);
 
         DirichletCluster cluster1 = new DirichletCluster(model1, 1);
         DirichletCluster cluster2 = new DirichletCluster(model2, 2);
         DirichletCluster cluster3 = new DirichletCluster(model3, 3);
         clusters = asList(cluster1, cluster2, cluster3);
+        numClusters = clusters.size();
 
         state = new DirichletState(modelDistribution, numClusters, alpha0);
+        state.setClusters(clusters);
     }
 
     @Test
@@ -62,6 +68,22 @@ public class DirichletStateTest extends MahoutTestCase {
         assertThat(state.getMixture().size(), is(equalTo(numClusters)));
         assertThat(state.getMixture().zSum(), is(closeTo(1.0, EPSILON)));
         assertThat(state.getNumClusters(), is(sameInstance(numClusters)));
+    }
+
+    @Test
+    public void testUpdateModels() {
+        DirichletState state = new DirichletState(modelDistribution, 1, alpha0);
+        GaussianCluster model = new GaussianCluster(new DenseVector(new double[]{0.1, 0.2}), 0);
+        state.setClusters(asList(new DirichletCluster(model)));
+
+        assertThat(state.getModels()[0].count(), is(equalTo(0L)));
+
+        model.observe(new DenseVector(new double[]{1, 0}));
+        model.observe(new DenseVector(new double[]{0, 1}));
+
+        state.update(new Cluster[]{model});
+
+        assertThat(state.getModels()[0].count(), is(equalTo(2L)));
     }
 
     @Test
@@ -88,10 +110,6 @@ public class DirichletStateTest extends MahoutTestCase {
     public void testTotalCount() {
         // TODO: Replace dense vectors by random vectors
 
-        GaussianCluster model1 = new GaussianCluster(new DenseVector(new double[]{0.1, 0.2}), 0);
-        GaussianCluster model2 = new GaussianCluster(new DenseVector(new double[]{0.3, 0.4}), 1);
-        GaussianCluster model3 = new GaussianCluster(new DenseVector(new double[]{0.4, 0.5}), 2);
-
         DirichletCluster cluster1 = new DirichletCluster(model1, 1);
         DirichletCluster cluster2 = new DirichletCluster(model2, 2);
         DirichletCluster cluster3 = new DirichletCluster(model3, 3);
@@ -101,6 +119,11 @@ public class DirichletStateTest extends MahoutTestCase {
         state.setClusters(clusters);
 
         assertThat(state.totalCounts(), is(equalTo((Vector) new DenseVector(new double[]{1, 2, 3}))));
+    }
+
+    @Test
+    public void testGetModels() {
+        assertArrayEquals(state.getModels(), new Model[]{model1, model2, model3});
     }
 
     @Test
