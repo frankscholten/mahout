@@ -105,60 +105,60 @@ public abstract class AbstractDifferenceRecommenderEvaluator implements Recommen
     log.info("Beginning evaluation using {} of {}", trainingPercentage, dataModel);
     
     int numUsers = dataModel.getNumUsers();
-    FastByIDMap<PreferenceArray> trainingUsers = new FastByIDMap<PreferenceArray>(
+    FastByIDMap<PreferenceArray> trainingPrefs = new FastByIDMap<PreferenceArray>(
         1 + (int) (evaluationPercentage * numUsers));
-    FastByIDMap<PreferenceArray> testUserPrefs = new FastByIDMap<PreferenceArray>(
+    FastByIDMap<PreferenceArray> testPrefs = new FastByIDMap<PreferenceArray>(
         1 + (int) (evaluationPercentage * numUsers));
     
     LongPrimitiveIterator it = dataModel.getUserIDs();
     while (it.hasNext()) {
       long userID = it.nextLong();
       if (random.nextDouble() < evaluationPercentage) {
-        processOneUser(trainingPercentage, trainingUsers, testUserPrefs, userID, dataModel);
+        splitOneUsersPrefs(trainingPercentage, trainingPrefs, testPrefs, userID, dataModel);
       }
     }
     
-    DataModel trainingModel = dataModelBuilder == null ? new GenericDataModel(trainingUsers)
-        : dataModelBuilder.buildDataModel(trainingUsers);
+    DataModel trainingModel = dataModelBuilder == null ? new GenericDataModel(trainingPrefs)
+        : dataModelBuilder.buildDataModel(trainingPrefs);
     
     Recommender recommender = recommenderBuilder.buildRecommender(trainingModel);
     
-    double result = getEvaluation(testUserPrefs, recommender);
+    double result = getEvaluation(testPrefs, recommender);
     log.info("Evaluation result: {}", result);
     return result;
   }
   
-  private void processOneUser(double trainingPercentage,
-                              FastByIDMap<PreferenceArray> trainingUsers,
-                              FastByIDMap<PreferenceArray> testUserPrefs,
-                              long userID,
-                              DataModel dataModel) throws TasteException {
-    List<Preference> trainingPrefs = null;
-    List<Preference> testPrefs = null;
+  private void splitOneUsersPrefs(double trainingPercentage,
+                                  FastByIDMap<PreferenceArray> trainingPrefs,
+                                  FastByIDMap<PreferenceArray> testPrefs,
+                                  long userID,
+                                  DataModel dataModel) throws TasteException {
+    List<Preference> oneUserTrainingPrefs = null;
+    List<Preference> oneUserTestPrefs = null;
     PreferenceArray prefs = dataModel.getPreferencesFromUser(userID);
     int size = prefs.length();
     for (int i = 0; i < size; i++) {
       Preference newPref = new GenericPreference(userID, prefs.getItemID(i), prefs.getValue(i));
       if (random.nextDouble() < trainingPercentage) {
-        if (trainingPrefs == null) {
-          trainingPrefs = Lists.newArrayListWithCapacity(3);
+        if (oneUserTrainingPrefs == null) {
+          oneUserTrainingPrefs = Lists.newArrayListWithCapacity(3);
         }
-        trainingPrefs.add(newPref);
+        oneUserTrainingPrefs.add(newPref);
       } else {
-        if (testPrefs == null) {
-          testPrefs = Lists.newArrayListWithCapacity(3);
+        if (oneUserTestPrefs == null) {
+          oneUserTestPrefs = Lists.newArrayListWithCapacity(3);
         }
-        testPrefs.add(newPref);
+        oneUserTestPrefs.add(newPref);
       }
     }
-    if (trainingPrefs != null) {
-      trainingUsers.put(userID, new GenericUserPreferenceArray(trainingPrefs));
-      if (testPrefs != null) {
-        testUserPrefs.put(userID, new GenericUserPreferenceArray(testPrefs));
+    if (oneUserTrainingPrefs != null) {
+      trainingPrefs.put(userID, new GenericUserPreferenceArray(oneUserTrainingPrefs));
+      if (oneUserTestPrefs != null) {
+        testPrefs.put(userID, new GenericUserPreferenceArray(oneUserTestPrefs));
       }
     }
   }
-  
+
   private float capEstimatedPreference(float estimate) {
     if (estimate > maxPreference) {
       return maxPreference;
@@ -168,25 +168,27 @@ public abstract class AbstractDifferenceRecommenderEvaluator implements Recommen
     }
     return estimate;
   }
-  
-  private double getEvaluation(FastByIDMap<PreferenceArray> testUserPrefs, Recommender recommender)
+
+  private double getEvaluation(FastByIDMap<PreferenceArray> testPrefs, Recommender recommender)
     throws TasteException {
     reset();
     Collection<Callable<Void>> estimateCallables = Lists.newArrayList();
     AtomicInteger noEstimateCounter = new AtomicInteger();
-    for (Map.Entry<Long,PreferenceArray> entry : testUserPrefs.entrySet()) {
+    for (Map.Entry<Long,PreferenceArray> entry : testPrefs.entrySet()) {
       estimateCallables.add(
           new PreferenceEstimateCallable(recommender, entry.getKey(), entry.getValue(), noEstimateCounter));
     }
     log.info("Beginning evaluation of {} users", estimateCallables.size());
-    execute(estimateCallables, noEstimateCounter);
+    RunningAverageAndStdDev timing = new FullRunningAverageAndStdDev();
+    execute(estimateCallables, noEstimateCounter, timing);
     return computeFinalEvaluation();
   }
   
-  protected static void execute(Collection<Callable<Void>> callables, AtomicInteger noEstimateCounter)
-    throws TasteException {
+  protected static void execute(Collection<Callable<Void>> callables,
+                                AtomicInteger noEstimateCounter,
+                                RunningAverageAndStdDev timing) throws TasteException {
 
-    callables = wrapWithStatsCallables(callables, noEstimateCounter);
+    callables = wrapWithStatsCallables(callables, noEstimateCounter, timing);
     int numProcessors = Runtime.getRuntime().availableProcessors();
     ExecutorService executor = Executors.newFixedThreadPool(numProcessors);
     log.info("Starting timing of {} tasks in {} threads", callables.size(), numProcessors);
@@ -204,13 +206,13 @@ public abstract class AbstractDifferenceRecommenderEvaluator implements Recommen
     executor.shutdown();
   }
   
-  private static Collection<Callable<Void>> wrapWithStatsCallables(Collection<Callable<Void>> callables,
-                                                                   AtomicInteger noEstimateCounter) {
+  private static Collection<Callable<Void>> wrapWithStatsCallables(Iterable<Callable<Void>> callables,
+                                                                   AtomicInteger noEstimateCounter,
+                                                                   RunningAverageAndStdDev timing) {
     Collection<Callable<Void>> wrapped = Lists.newArrayList();
     int count = 0;
-    RunningAverageAndStdDev timing = new FullRunningAverageAndStdDev();
     for (Callable<Void> callable : callables) {
-      boolean logStats = count++ % 1000 == 0; // log every 100 or so iterations
+      boolean logStats = count++ % 1000 == 0; // log every 1000 or so iterations
       wrapped.add(new StatsCallable(callable, logStats, timing, noEstimateCounter));
     }
     return wrapped;
@@ -221,14 +223,14 @@ public abstract class AbstractDifferenceRecommenderEvaluator implements Recommen
   protected abstract void processOneEstimate(float estimatedPreference, Preference realPref);
   
   protected abstract double computeFinalEvaluation();
-  
+
   public final class PreferenceEstimateCallable implements Callable<Void> {
-    
+
     private final Recommender recommender;
     private final long testUserID;
     private final PreferenceArray prefs;
     private final AtomicInteger noEstimateCounter;
-    
+
     public PreferenceEstimateCallable(Recommender recommender,
                                       long testUserID,
                                       PreferenceArray prefs,
@@ -238,7 +240,7 @@ public abstract class AbstractDifferenceRecommenderEvaluator implements Recommen
       this.prefs = prefs;
       this.noEstimateCounter = noEstimateCounter;
     }
-    
+
     @Override
     public Void call() throws TasteException {
       for (Preference realPref : prefs) {
@@ -261,43 +263,7 @@ public abstract class AbstractDifferenceRecommenderEvaluator implements Recommen
       }
       return null;
     }
-    
+
   }
-  
-  private static final class StatsCallable implements Callable<Void> {
-    
-    private final Callable<Void> delegate;
-    private final boolean logStats;
-    private final RunningAverageAndStdDev timing;
-    private final AtomicInteger noEstimateCounter;
-    
-    private StatsCallable(Callable<Void> delegate,
-                          boolean logStats,
-                          RunningAverageAndStdDev timing,
-                          AtomicInteger noEstimateCounter) {
-      this.delegate = delegate;
-      this.logStats = logStats;
-      this.timing = timing;
-      this.noEstimateCounter = noEstimateCounter;
-    }
-    
-    @Override
-    public Void call() throws Exception {
-      long start = System.currentTimeMillis();
-      delegate.call();
-      long end = System.currentTimeMillis();
-      timing.addDatum(end - start);
-      if (logStats) {
-        Runtime runtime = Runtime.getRuntime();
-        int average = (int) timing.getAverage();
-        log.info("Average time per recommendation: {}ms", average);
-        long totalMemory = runtime.totalMemory();
-        long memory = totalMemory - runtime.freeMemory();
-        log.info("Approximate memory used: {}MB / {}MB", memory / 1000000L, totalMemory / 1000000L);
-        log.info("Unable to recommend in {} cases", noEstimateCounter.get());
-      }
-      return null;
-    }
-  }
-  
+
 }

@@ -30,7 +30,6 @@ import org.apache.mahout.clustering.WeightedVectorWritable;
 import org.apache.mahout.clustering.cdbw.CDbwEvaluator;
 import org.apache.mahout.clustering.evaluation.ClusterEvaluator;
 import org.apache.mahout.clustering.evaluation.RepresentativePointsDriver;
-import org.apache.mahout.clustering.evaluation.RepresentativePointsMapper;
 import org.apache.mahout.common.AbstractJob;
 import org.apache.mahout.common.ClassUtils;
 import org.apache.mahout.common.HadoopUtil;
@@ -42,9 +41,6 @@ import org.apache.mahout.common.iterator.sequencefile.PathType;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileDirIterable;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileDirValueIterable;
 import org.apache.mahout.utils.vectors.VectorHelper;
-import org.apache.mahout.utils.vectors.io.CSVClusterWriter;
-import org.apache.mahout.utils.vectors.io.ClusterDumperWriter;
-import org.apache.mahout.utils.vectors.io.ClusterWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -108,7 +104,7 @@ public final class ClusterDumper extends AbstractJob {
   public int run(String[] args) throws Exception {
     addOption(SEQ_FILE_DIR_OPTION, "s", "The directory containing Sequence Files for the Clusters", true);
     addOption(OUTPUT_OPTION, "o", "Optional output directory. Default is to output to the console.");
-    addOption(OUTPUT_FORMAT_OPT, "of", "The optional output format to write the results as.  Options: TEXT, CSV or GML", "TEXT");
+    addOption(OUTPUT_FORMAT_OPT, "of", "The optional output format to write the results as.  Options: TEXT, CSV or GRAPH_ML", "TEXT");
     addOption(SUBSTRING_OPTION, "b", "The number of chars of the asFormatString() to print");
     addOption(NUM_WORDS_OPTION, "n", "The number of top terms to print");
     addOption(POINTS_DIR_OPTION, "p",

@@ -21,7 +21,6 @@ import org.apache.mahout.clustering.Cluster;
 import org.apache.mahout.clustering.WeightedVectorWritable;
 import org.apache.mahout.math.NamedVector;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.utils.vectors.io.AbstractClusterWriter;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -81,8 +80,8 @@ public class GraphMLClusterWriter extends AbstractClusterWriter {
         }
         line.append(createEdge(String.valueOf(cluster.getId()), vecStr));
       }
-      getWriter().append(line).append("\n");
     }
+    getWriter().append(line).append("\n");
   }
 
   private static String createEdge(String left, String right) {
