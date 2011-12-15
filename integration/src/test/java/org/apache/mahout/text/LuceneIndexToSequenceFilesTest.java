@@ -9,7 +9,6 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.DuplicateFilter;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.store.FSDirectory;
@@ -143,22 +142,6 @@ public class LuceneIndexToSequenceFilesTest {
     Iterator<Pair<Text, Text>> iterator = getSequenceFileIterator(lucene2SeqConf);
 
     assertSimpleDocumentEquals(new SimpleDocument("4", "Mahout is cool"), iterator.next());
-    assertFalse(iterator.hasNext());
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  public void testRun_filter() throws IOException {
-    indexDocuments(document1, document2, document3, document3);
-
-    lucene2SeqConf.setFilter(new DuplicateFilter(field));
-    lucene2Seq.run(lucene2SeqConf);
-
-    Iterator<Pair<Text, Text>> iterator = getSequenceFileIterator(lucene2SeqConf);
-
-    assertSimpleDocumentEquals(document1, iterator.next());
-    assertSimpleDocumentEquals(document2, iterator.next());
-    assertSimpleDocumentEquals(document3, iterator.next());
     assertFalse(iterator.hasNext());
   }
 

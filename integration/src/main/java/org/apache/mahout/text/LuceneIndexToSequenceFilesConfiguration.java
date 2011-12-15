@@ -18,14 +18,18 @@
 package org.apache.mahout.text;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.lucene.search.Filter;
+import org.apache.lucene.document.FieldSelector;
+import org.apache.lucene.document.SetBasedFieldSelector;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Holds all the configuration for {@link org.apache.mahout.text.LuceneIndexToSequenceFiles}, which generates a sequence file
@@ -43,7 +47,6 @@ public class LuceneIndexToSequenceFilesConfiguration {
   private String field;
   private Query query;
   private int maxHits;
-  private Filter filter;
   private List<String> extraFields;
 
   /**
@@ -108,19 +111,19 @@ public class LuceneIndexToSequenceFilesConfiguration {
     return maxHits;
   }
 
-  public void setFilter(Filter filter) {
-    this.filter = filter;
-  }
-
-  public Filter getFilter() {
-    return filter;
-  }
-
   public List<String> getExtraFields() {
     return extraFields;
   }
 
   public void setExtraFields(List<String> extraFields) {
     this.extraFields = extraFields;
+  }
+
+  public FieldSelector getFieldSelector() {
+    Set<String> fieldSet = Sets.newHashSet(idField, field);
+    if (extraFields != null) {
+        fieldSet.addAll(extraFields);
+    }
+    return new SetBasedFieldSelector(fieldSet, Collections.<String>emptySet());
   }
 }
