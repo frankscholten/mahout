@@ -44,31 +44,42 @@ public class SSVDCli extends AbstractJob {
     addInputOption();
     addOutputOption();
     addOption("rank", "k", "decomposition rank", true);
-    addOption("oversampling", "p", "oversampling", true);
-    addOption("blockHeight", "r", "Y block height (must be > (k+p))", "10000");
+    addOption("oversampling", "p", "oversampling", String.valueOf(15));
+    addOption("blockHeight",
+              "r",
+              "Y block height (must be > (k+p))",
+              String.valueOf(10000));
     addOption("outerProdBlockHeight",
               "oh",
-              "block height of outer products during multiplication, increase for sparse input",
-              "10000");
-    addOption("minSplitSize", "s", "minimum split size", "-1");
-    addOption("computeU", "U", "compute U (true/false)", "true");
+              "block height of outer products during multiplication, increase for sparse inputs",
+              String.valueOf(30000));
+    addOption("abtBlockHeight",
+              "abth",
+              "block height of Y_i in ABtJob during AB' multiplication, increase for extremely sparse inputs",
+              String.valueOf(200000));
+    addOption("minSplitSize", "s", "minimum split size", String.valueOf(-1));
+    addOption("computeU", "U", "compute U (true/false)", String.valueOf(true));
     addOption("uHalfSigma",
               "uhs",
               "Compute U as UHat=U x pow(Sigma,0.5)",
-              "false");
-    addOption("computeV", "V", "compute V (true/false)", "true");
+              String.valueOf(false));
+    addOption("computeV", "V", "compute V (true/false)", String.valueOf(true));
     addOption("vHalfSigma",
               "vhs",
               "compute V as VHat= V x pow(Sigma,0.5)",
-              "false");
+              String.valueOf(false));
     addOption("reduceTasks",
               "t",
               "number of reduce tasks (where applicable)",
-              "1");
+              true);
     addOption("powerIter",
               "q",
               "number of additional power iterations (0..2 is good)",
-              "0");
+              String.valueOf(0));
+    addOption("broadcast",
+              "br",
+              "whether use distributed cache to broadcast matrices wherever possible",
+              String.valueOf(true));
     addOption(DefaultOptionCreator.overwriteOption().create());
 
     Map<String, String> pargs = parseArguments(args);
@@ -76,13 +87,11 @@ public class SSVDCli extends AbstractJob {
       return -1;
     }
 
-    String input = pargs.get("--input");
-    String output = pargs.get("--output");
-    String tempDir = pargs.get("--tempDir");
     int k = Integer.parseInt(pargs.get("--rank"));
     int p = Integer.parseInt(pargs.get("--oversampling"));
     int r = Integer.parseInt(pargs.get("--blockHeight"));
     int h = Integer.parseInt(pargs.get("--outerProdBlockHeight"));
+    int abh = Integer.parseInt(pargs.get("--abtBlockHeight"));
     int q = Integer.parseInt(pargs.get("--powerIter"));
     int minSplitSize = Integer.parseInt(pargs.get("--minSplitSize"));
     boolean computeU = Boolean.parseBoolean(pargs.get("--computeU"));
@@ -90,6 +99,7 @@ public class SSVDCli extends AbstractJob {
     boolean cUHalfSigma = Boolean.parseBoolean(pargs.get("--uHalfSigma"));
     boolean cVHalfSigma = Boolean.parseBoolean(pargs.get("--vHalfSigma"));
     int reduceTasks = Integer.parseInt(pargs.get("--reduceTasks"));
+    boolean broadcast = Boolean.parseBoolean(pargs.get("--broadcast"));
     boolean overwrite =
       pargs.containsKey(keyFor(DefaultOptionCreator.OVERWRITE_OPTION));
 
@@ -100,10 +110,9 @@ public class SSVDCli extends AbstractJob {
 
     SSVDSolver solver =
       new SSVDSolver(conf,
-                     new Path[] { new Path(input) },
-                     new Path(tempDir),
+                     new Path[] { getInputPath() },
+                     getTempPath(),
                      r,
-                     h,
                      k,
                      p,
                      reduceTasks);
@@ -112,7 +121,10 @@ public class SSVDCli extends AbstractJob {
     solver.setComputeV(computeV);
     solver.setcUHalfSigma(cUHalfSigma);
     solver.setcVHalfSigma(cVHalfSigma);
+    solver.setOuterBlockHeight(h);
+    solver.setAbtBlockHeight(abh);
     solver.setQ(q);
+    solver.setBroadcast(broadcast);
     solver.setOverwrite(overwrite);
 
     solver.run();
@@ -120,19 +132,21 @@ public class SSVDCli extends AbstractJob {
     // housekeeping
     FileSystem fs = FileSystem.get(conf);
 
-    Path outPath = new Path(output);
-    fs.mkdirs(outPath);
+    fs.mkdirs(getOutputPath());
 
-    SequenceFile.Writer sigmaW =
-      SequenceFile.createWriter(fs,
-                                conf,
-                                new Path(outPath, "sigma"),
-                                NullWritable.class,
-                                VectorWritable.class);
+    SequenceFile.Writer sigmaW = null;
+
     try {
+      sigmaW =
+        SequenceFile.createWriter(fs,
+                                  conf,
+                                  getOutputPath("sigma"),
+                                  NullWritable.class,
+                                  VectorWritable.class);
       Writable sValues =
-        new VectorWritable(new DenseVector(Arrays.copyOf(solver
-          .getSingularValues(), k), true));
+        new VectorWritable(new DenseVector(Arrays.copyOf(solver.getSingularValues(),
+                                                         k),
+                                           true));
       sigmaW.append(NullWritable.get(), sValues);
 
     } finally {
@@ -143,7 +157,7 @@ public class SSVDCli extends AbstractJob {
       FileStatus[] uFiles = fs.globStatus(new Path(solver.getUPath()));
       if (uFiles != null) {
         for (FileStatus uf : uFiles) {
-          fs.rename(uf.getPath(), outPath);
+          fs.rename(uf.getPath(), getOutputPath());
         }
       }
     }
@@ -151,7 +165,7 @@ public class SSVDCli extends AbstractJob {
       FileStatus[] vFiles = fs.globStatus(new Path(solver.getVPath()));
       if (vFiles != null) {
         for (FileStatus vf : vFiles) {
-          fs.rename(vf.getPath(), outPath);
+          fs.rename(vf.getPath(), getOutputPath());
         }
       }
 

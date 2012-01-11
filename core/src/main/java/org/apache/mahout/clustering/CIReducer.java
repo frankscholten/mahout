@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,8 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.common.distance;
+package org.apache.mahout.clustering;
 
-public class UserDefinedDistanceMeasure extends ManhattanDistanceMeasure {
+import java.io.IOException;
+import java.util.Iterator;
 
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.mapreduce.Reducer;
+
+public class CIReducer extends Reducer<IntWritable,Cluster,IntWritable,Cluster> {
+
+  @Override
+  protected void reduce(IntWritable key, Iterable<Cluster> values,
+      Context context) throws IOException, InterruptedException {
+    Iterator<Cluster> iter =values.iterator();
+    Cluster first = null;
+    while(iter.hasNext()){
+      Cluster cl = iter.next();
+      if (first == null){
+        first = cl;
+      } else {
+        first.observe(cl);
+      }
+    }
+    first.computeParameters();
+    context.write(key, first);
+  }
+  
 }

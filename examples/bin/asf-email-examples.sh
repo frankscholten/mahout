@@ -16,6 +16,40 @@
 # limitations under the License.
 #
 
+#
+# You will need to download or otherwise obtain some or all of the Amazon ASF Email Public Dataset (http://aws.amazon.com/datasets/7791434387204566) to use this script.
+# To obtain a full copy you will need to launch an EC2 instance and mount the dataset to download it, otherwise you can get a sample of it at
+# http://www.lucidimagination.com/devzone/technical-articles/scaling-mahout
+# Also, see http://www.ibm.com/developerworks/java/library/j-mahout-scaling/ for more info
+
+function fileExists() {
+  if ([ "$MAHOUT_LOCAL" != "" ] && [ ! -e "$1" ]) || ([ "$MAHOUT_LOCAL" == "" ] && ! hadoop fs -test -e /user/$USER/$1); then
+    return 1 # file doesn't exist
+  else
+    return 0 # file exists
+  fi
+}
+
+function removeFolder() {
+  if [ "$MAHOUT_LOCAL" != "" ]; then
+    rm -rf $1
+  else
+    if fileExists "$1"; then
+      hadoop fs -rmr /user/$USER/$1
+    fi
+  fi	
+}
+
+if [ "$1" = "--help" ] || [ "$1" = "--?" ]; then
+  echo "This script runs recommendation, classification and clustering of the ASF Email Public Dataset, as hosted on Amazon (http://aws.amazon.com/datasets/7791434387204566).  Requires download."
+  exit
+fi
+
+if [ -z "$2" ]; then
+  echo "Usage: asf-email-examples.sh input_path output_path"
+  exit
+fi
+
 SCRIPT_PATH=${0%/*}
 if [ "$0" != "$SCRIPT_PATH" ] && [ "$SCRIPT_PATH" != "" ]; then
   cd $SCRIPT_PATH
@@ -24,29 +58,26 @@ START_PATH=`pwd`
 MAHOUT="../../bin/mahout"
 ASF_ARCHIVES=$1
 OUT=$2
-OVER=$3
 export MAHOUT_HEAPSIZE=2048
 
-if [ "$1" = "-ni" ]; then
-  alg=rec
+algorithm=( recommender clustering classification clean )
+if [ -n "$3" ]; then
+  choice=$3
 else
-  algorithm=( recommender clustering classification )
-
   echo "Please select a number to choose the corresponding algorithm to run"
   echo "1. ${algorithm[0]}"
   echo "2. ${algorithm[1]}"
   echo "3. ${algorithm[2]}"
+  echo "4. ${algorithm[3]} -- cleans up the work area -- all files under the work area will be deleted"
   read -p "Enter your choice : " choice
-
-  echo "ok. You chose $choice and we'll use ${algorithm[$choice-1]}"
-  alg=${algorithm[$choice-1]}
 fi
-
+echo "ok. You chose $choice and we'll use ${algorithm[$choice-1]}"
+alg=${algorithm[$choice-1]}
 
 if [ "x$alg" == "xrecommender" ]; then
   # convert the mail to seq files
   MAIL_OUT="$OUT/prefs/seq-files"
-  if [ "x$OVER" == "xover" ] || [ ! -e "$MAIL_OUT/chunk-0" ]; then
+  if ! fileExists "$MAIL_OUT/chunk-0"; then
     echo "Converting Mail files to Sequence Files"
     $MAHOUT org.apache.mahout.text.SequenceFilesFromMailArchives --charset "UTF-8" --from --references --input $ASF_ARCHIVES --output $MAIL_OUT --separator " ::: "
   fi
@@ -55,10 +86,12 @@ if [ "x$alg" == "xrecommender" ]; then
   PREFS_REC_INPUT="$OUT/prefs/input/recInput"
   RECS_OUT=$"$OUT/prefs/recommendations"
   # prep for recs
-  if [ "x$OVER" == "xover" ] || [ ! -e "$PREFS/fromIds-dictionary-0" ]; then
+  if ! fileExists "$PREFS/fromIds-dictionary-0"; then
     echo "Prepping Sequence files for Recommender"
     $MAHOUT org.apache.mahout.cf.taste.example.email.MailToPrefsDriver --input $MAIL_OUT --output $PREFS --overwrite --separator " ::: "
   fi
+  removeFolder "$PREFS_TMP"
+  removeFolder "$RECS_OUT"
   # run the recs
   echo "Run the recommender"
   $MAHOUT recommenditembased --input $PREFS_REC_INPUT --output $RECS_OUT --tempDir $PREFS_TMP --similarityClassname SIMILARITY_LOGLIKELIHOOD
@@ -69,26 +102,34 @@ elif [ "x$alg" == "xclustering" ]; then
   SEQ2SP="$OUT/clustering/seq2sparse"
   algorithm=( kmeans dirichlet minhash )
 
-  echo "Please select a number to choose the corresponding algorithm to run"
-  echo "1. ${algorithm[0]}"
-  echo "2. ${algorithm[1]}"
-  echo "3. ${algorithm[2]}"
-  read -p "Enter your choice : " choice
+  if [ -n "$4" ]; then
+    choice=$4
+  else
+    echo "Please select a number to choose the corresponding algorithm to run"
+    echo "1. ${algorithm[0]}"
+    echo "2. ${algorithm[1]}"
+    echo "3. ${algorithm[2]}"
+    read -p "Enter your choice : " choice
+  fi
 
   echo "ok. You chose $choice and we'll use ${algorithm[$choice-1]}"
   nbalg=${algorithm[$choice-1]}
   if [ "x$nbalg" == "xkmeans"  ] || [ "x$nbalg" == "xdirichlet" ]; then
-    echo "How many clusters would you like to generate:"
-    read -p "Enter your choice : " numClusters
+    if [ -n "$5" ]; then
+      numClusters=$5
+    else
+      echo "How many clusters would you like to generate:"
+      read -p "Enter your choice : " numClusters
+    fi
   fi
-  if [ "x$OVER" == "xover" ] || [ ! -e "$MAIL_OUT/chunk-0" ]; then
+  if ! fileExists "$MAIL_OUT/chunk-0"; then
     echo "Converting Mail files to Sequence Files"
     $MAHOUT org.apache.mahout.text.SequenceFilesFromMailArchives --charset "UTF-8" --subject --body --input $ASF_ARCHIVES --output $MAIL_OUT
   fi
 
   #convert to sparse vectors -- use the 2 norm (Euclidean distance) and lop of some of the common terms
 
-  if [ "x$OVER" == "xover" ] || [ ! -e "$SEQ2SP/dictionary.file-0" ]; then
+  if ! fileExists "$SEQ2SP/dictionary.file-0"; then
     echo "Converting the files to sparse vectors"
     $MAHOUT seq2sparse --input $MAIL_OUT --output $SEQ2SP --norm 2 --weight TFIDF --namedVector --maxDFPercent 90 --minSupport 2 --analyzerName org.apache.mahout.text.MailArchivesClusteringAnalyzer
   fi
@@ -109,19 +150,31 @@ elif [ "x$alg" == "xclustering" ]; then
 #classification
 elif [ "x$alg" == "xclassification" ]; then
   algorithm=( standard complementary sgd )
-
-  echo "Please select a number to choose the corresponding algorithm to run"
-  echo "1. ${algorithm[0]}"
-  echo "2. ${algorithm[1]}"
-  echo "3. ${algorithm[2]}"
-  read -p "Enter your choice : " choice
-
+  echo ""
+  echo "!!!!!!!!!!!"
+  echo "NOTE: The classification examples are still experimental for this data set due to quality concerns likely due to preprocessing.  We are working to remedy these.  For more info, see https://issues.apache.org/jira/browse/MAHOUT-939"
+  echo "!!!!!!!!!!!"
+  echo ""
+  if [ -n "$4" ]; then
+    choice=$4
+  else
+    echo "Please select a number to choose the corresponding algorithm to run"
+    echo "1. ${algorithm[0]}"
+    echo "2. ${algorithm[1]}"
+    echo "3. ${algorithm[2]}"
+    read -p "Enter your choice : " choice
+  fi
+  
   echo "ok. You chose $choice and we'll use ${algorithm[$choice-1]}"
   classAlg=${algorithm[$choice-1]}
 
   if [ "x$classAlg" == "xsgd"  ]; then
-    echo "How many labels/projects are there in the data set:"
-    read -p "Enter your choice : " numLabels
+    if [ -n "$5" ]; then
+      numLabels=$5
+    else
+      echo "How many labels/projects are there in the data set:"
+      read -p "Enter your choice : " numLabels
+    fi
   fi
   #Convert mail to be formatted as:
   # label\ttext
@@ -138,18 +191,18 @@ elif [ "x$alg" == "xclassification" ]; then
     TEST="$SPLIT/test"
     TEST_OUT="$CLASS/test-results"
     LABEL="$SPLIT/labels"
-    if [ "x$OVER" == "xover" ] || [ ! -e "$MAIL_OUT/chunk-0" ]; then
+    if ! fileExists "$MAIL_OUT/chunk-0"; then
       echo "Converting Mail files to Sequence Files"
       $MAHOUT org.apache.mahout.text.SequenceFilesFromMailArchives --charset "UTF-8" --subject --body --input $ASF_ARCHIVES --output $MAIL_OUT
     fi
-    if [ "x$OVER" == "xover" ] || [ ! -e "$SEQ2SP/dictionary.file-0" ]; then
+    if ! fileExists "$SEQ2SP/dictionary.file-0"; then
       echo "Converting the files to sparse vectors"
       $MAHOUT seq2sparse --input $MAIL_OUT --output $SEQ2SP --norm 2 --weight TFIDF --namedVector --maxDFPercent 90 --minSupport 2 --analyzerName org.apache.mahout.text.MailArchivesClusteringAnalyzer
       #We need to modify the vectors to have a better label
       echo "Converting vector labels"
       $MAHOUT org.apache.mahout.classifier.email.PrepEmailVectorsDriver --input "$SEQ2SP/tfidf-vectors" --output $SEQ2SPLABEL --overwrite --maxItemsPerLabel 1000
     fi
-    if [ "x$OVER" == "xover" ] || [ ! -e "$TRAIN/part-m-00000" ]; then
+    if ! fileExists "$TRAIN/part-m-00000"; then
       #setup train/test files
       echo "Creating training and test inputs"
       $MAHOUT split --input $SEQ2SPLABEL --trainingOutput $TRAIN --testOutput $TEST --randomSelectionPct 20 --overwrite --sequenceFiles
@@ -175,33 +228,41 @@ elif [ "x$alg" == "xclassification" ]; then
     SPLIT="$CLASS/splits"
     TRAIN="$SPLIT/train"
     TEST="$SPLIT/test"
+    MAPREDOUT="$SPLIT/mapRedOut"
     TEST_OUT="$CLASS/test-results"
     MODELS="$CLASS/models"
     LABEL="$SPLIT/labels"
-    if [ "x$OVER" == "xover" ] || [ ! -e "$MAIL_OUT/chunk-0" ]; then
+    if ! fileExists "$MAIL_OUT/chunk-0"; then
       echo "Converting Mail files to Sequence Files"
-      $MAHOUT org.apache.mahout.text.SequenceFilesFromMailArchives --charset "UTF-8" --subject --body --input $ASF_ARCHIVES --output $MAIL_OUT
+      $MAHOUT org.apache.mahout.text.SequenceFilesFromMailArchives --charset "UTF-8" --subject --body --input $ASF_ARCHIVES --output $MAIL_OUT --stripQuoted
     fi
     echo "Converting the files to sparse vectors in $SEQ2SP"
-    if [ "x$OVER" == "xover" ] || [ ! -e "$SEQ2SP/part-m-00000" ]; then
-      $MAHOUT seq2encoded --input $MAIL_OUT --output $SEQ2SP --analyzerName org.apache.mahout.text.MailArchivesClusteringAnalyzer --cardinality 20000
+    if ! fileExists "$SEQ2SP/part-m-00000"; then
+      $MAHOUT seq2encoded --input $MAIL_OUT --output $SEQ2SP --analyzerName org.apache.mahout.text.MailArchivesClusteringAnalyzer --cardinality 100000
     fi
     #We need to modify the vectors to have a better label
     echo "Converting vector labels"
     $MAHOUT org.apache.mahout.classifier.email.PrepEmailVectorsDriver --input "$SEQ2SP" --output $SEQ2SPLABEL --overwrite
-    if [ "x$OVER" == "xover" ] || [ ! -e "$TRAIN/part-m-00000" ]; then
+    if ! fileExists "$MAPREDOUT/training-r-00000"; then
       #setup train/test files
       echo "Creating training and test inputs from $SEQ2SPLABEL"
-      $MAHOUT split --input $SEQ2SPLABEL --trainingOutput $TRAIN --testOutput $TEST --randomSelectionPct 20 --overwrite --sequenceFiles
+      $MAHOUT split --input $SEQ2SPLABEL --mapRedOutputDir $MAPREDOUT  --randomSelectionPct 20 --overwrite --sequenceFiles --method mapreduce
     fi
     MODEL="$MODELS/asf.model"
 
 
     echo "Running SGD Training"
-    $MAHOUT org.apache.mahout.classifier.sgd.TrainASFEmail $TRAIN $MODELS $numLabels 20000
+    $MAHOUT org.apache.mahout.classifier.sgd.TrainASFEmail -i $MAPREDOUT/ -o $MODELS --categories $numLabels --cardinality 100000
     echo "Running Test"
-    $MAHOUT org.apache.mahout.classifier.sgd.TestASFEmail --input $TEST --model $MODEL
+    $MAHOUT org.apache.mahout.classifier.sgd.TestASFEmail --input $MAPREDOUT/ --model $MODEL
 
+  fi
+elif [ "x$alg" == "xclean" ]; then
+  echo "Are you sure you really want to remove all files under $OUT:"
+  read -p "Enter your choice (y/n): " answer
+  if [ "x$answer" == "xy" ] || [ "x$answer" == "xY" ]; then
+    echo "Cleaning out $OUT";
+	removeFolder "$OUT"
   fi
 fi
 

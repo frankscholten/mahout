@@ -17,25 +17,25 @@
 
 package org.apache.mahout.classifier.df;
 
-import java.util.List;
-import java.util.Random;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.io.DataInput;
-
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.io.Closeables;
-import org.apache.mahout.classifier.df.data.Data;
-import org.apache.mahout.classifier.df.data.DataUtils;
-import org.apache.mahout.classifier.df.data.Instance;
-import org.apache.mahout.classifier.df.node.Node;
-import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Writable;
+import org.apache.mahout.classifier.df.data.Data;
+import org.apache.mahout.classifier.df.data.DataUtils;
+import org.apache.mahout.classifier.df.data.Dataset;
+import org.apache.mahout.classifier.df.data.Instance;
+import org.apache.mahout.classifier.df.node.Node;
 
-import com.google.common.base.Preconditions;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.List;
+import java.util.Random;
 
 /**
  * Represents a forest of decision trees.
@@ -44,7 +44,7 @@ public class DecisionForest implements Writable {
   
   private final List<Node> trees;
   
-  protected DecisionForest() {
+  private DecisionForest() {
     trees = Lists.newArrayList();
   }
   
@@ -54,14 +54,14 @@ public class DecisionForest implements Writable {
     this.trees = trees;
   }
   
-  public List<Node> getTrees() {
+  List<Node> getTrees() {
     return trees;
   }
-  
+
   /**
    * Classifies the data and calls callback for each classification
    */
-  public void classify(Data data, int[] predictions) {
+  public void classify(Data data, double[] predictions) {
     Preconditions.checkArgument(data.size() == predictions.length, "predictions.length must be equal to data.size()");
 
     if (data.isEmpty()) {
@@ -80,28 +80,39 @@ public class DecisionForest implements Writable {
    * 
    * @param rng
    *          Random number generator, used to break ties randomly
-   * @param instance
    * @return -1 if the label cannot be predicted
    */
-  public int classify(Random rng, Instance instance) {
-    int[] predictions = new int[trees.size()];
-    
-    for (Node tree : trees) {
-      int prediction = tree.classify(instance);
-      if (prediction != -1) {
-        predictions[prediction]++;
+  public double classify(Dataset dataset, Random rng, Instance instance) {
+    if (dataset.isNumerical(dataset.getLabelId())) {
+      double sum = 0;
+      int cnt = 0;
+      for (Node tree : trees) {
+        double prediction = tree.classify(instance);
+        if (prediction != -1) {
+          sum += prediction;
+          cnt++;
+        }
       }
+      return sum / cnt;
+    } else {
+      int[] predictions = new int[dataset.nblabels()];
+      for (Node tree : trees) {
+        double prediction = tree.classify(instance);
+        if (prediction != -1) {
+          predictions[(int) prediction]++;
+        }
+      }
+      
+      if (DataUtils.sum(predictions) == 0) {
+        return -1; // no prediction available
+      }
+      
+      return DataUtils.maxindex(rng, predictions);
     }
-    
-    if (DataUtils.sum(predictions) == 0) {
-      return -1; // no prediction available
-    }
-    
-    return DataUtils.maxindex(rng, predictions);
   }
   
   /**
-   * Mean number of nodes per tree
+   * @return Mean number of nodes per tree
    */
   public long meanNbNodes() {
     long sum = 0;
@@ -114,7 +125,7 @@ public class DecisionForest implements Writable {
   }
   
   /**
-   * Total number of nodes in all the trees
+   * @return Total number of nodes in all the trees
    */
   public long nbNodes() {
     long sum = 0;
@@ -127,7 +138,7 @@ public class DecisionForest implements Writable {
   }
   
   /**
-   * Mean maximum depth per tree
+   * @return Mean maximum depth per tree
    */
   public long meanMaxDepth() {
     long sum = 0;
@@ -177,7 +188,7 @@ public class DecisionForest implements Writable {
     }
   }
 
-  public static DecisionForest read(DataInput dataInput) throws IOException {
+  private static DecisionForest read(DataInput dataInput) throws IOException {
     DecisionForest forest = new DecisionForest();
     forest.readFields(dataInput);
     return forest;
@@ -185,6 +196,7 @@ public class DecisionForest implements Writable {
 
   /**
    * Load the forest from a single file or a directory of files
+   * @throws java.io.IOException
    */
   public static DecisionForest load(Configuration conf, Path forestPath) throws IOException {
     FileSystem fs = forestPath.getFileSystem(conf);

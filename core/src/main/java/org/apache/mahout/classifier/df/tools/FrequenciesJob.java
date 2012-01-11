@@ -17,20 +17,14 @@
 
 package org.apache.mahout.classifier.df.tools;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.net.URI;
-import java.util.Arrays;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -39,18 +33,25 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
-import org.apache.mahout.common.HadoopUtil;
-import org.apache.mahout.common.iterator.sequencefile.SequenceFileValueIterable;
 import org.apache.mahout.classifier.df.DFUtils;
 import org.apache.mahout.classifier.df.data.DataConverter;
 import org.apache.mahout.classifier.df.data.Dataset;
 import org.apache.mahout.classifier.df.data.Instance;
 import org.apache.mahout.classifier.df.mapreduce.Builder;
+import org.apache.mahout.common.HadoopUtil;
+import org.apache.mahout.common.iterator.sequencefile.SequenceFileValueIterable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.net.URI;
+import java.util.Arrays;
+
 /**
- * Temporary class used to compute the frequency distribution of the "class attribute".
+ * Temporary class used to compute the frequency distribution of the "class attribute".<br>
+ * This class can be used when the criterion variable is the categorical attribute.
  */
 public class FrequenciesJob {
   
@@ -124,7 +125,7 @@ public class FrequenciesJob {
    * 
    * @return counts[partition][label] = num tuples from 'partition' with class == label
    */
-  protected int[][] parseOutput(JobContext job) throws IOException {
+  int[][] parseOutput(JobContext job) throws IOException {
     Configuration conf = job.getConfiguration();
     
     int numMaps = conf.getInt("mapred.map.tasks", -1);
@@ -176,7 +177,7 @@ public class FrequenciesJob {
     /**
      * Useful when testing
      */
-    protected void setup(Dataset dataset) {
+    void setup(Dataset dataset) {
       converter = new DataConverter(dataset);
     }
     
@@ -189,7 +190,7 @@ public class FrequenciesJob {
       
       Instance instance = converter.convert(value.toString());
       
-      context.write(firstId, new IntWritable(dataset.getLabel(instance)));
+      context.write(firstId, new IntWritable((int) dataset.getLabel(instance)));
     }
     
   }
@@ -208,7 +209,7 @@ public class FrequenciesJob {
     /**
      * Useful when testing
      */
-    protected void setup(int nblabels) {
+    void setup(int nblabels) {
       this.nblabels = nblabels;
     }
     
@@ -236,7 +237,9 @@ public class FrequenciesJob {
     /** counts[c] = num tuples from the partition with label == c */
     private int[] counts;
     
-    protected Frequencies(long firstId, int[] counts) {
+    Frequencies() { }
+    
+    Frequencies(long firstId, int[] counts) {
       this.firstId = firstId;
       this.counts = Arrays.copyOf(counts, counts.length);
     }

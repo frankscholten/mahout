@@ -17,6 +17,8 @@
 
 package org.apache.mahout.vectorizer;
 
+import java.util.List;
+
 import org.apache.commons.cli2.CommandLine;
 import org.apache.commons.cli2.Group;
 import org.apache.commons.cli2.Option;
@@ -33,7 +35,9 @@ import org.apache.mahout.common.AbstractJob;
 import org.apache.mahout.common.ClassUtils;
 import org.apache.mahout.common.CommandLineUtil;
 import org.apache.mahout.common.HadoopUtil;
+import org.apache.mahout.common.Pair;
 import org.apache.mahout.common.commandline.DefaultOptionCreator;
+import org.apache.mahout.math.hadoop.stats.BasicStats;
 import org.apache.mahout.vectorizer.collocations.llr.LLRReducer;
 import org.apache.mahout.vectorizer.common.PartialVectorMerger;
 import org.apache.mahout.vectorizer.tfidf.TFIDFConverter;
@@ -80,11 +84,18 @@ public final class SparseVectorsFromSequenceFiles extends AbstractJob {
     Option minDFOpt = obuilder.withLongName("minDF").withRequired(false).withArgument(
       abuilder.withName("minDF").withMinimum(1).withMaximum(1).create()).withDescription(
       "The minimum document frequency.  Default is 1").withShortName("md").create();
-    
+
     Option maxDFPercentOpt = obuilder.withLongName("maxDFPercent").withRequired(false).withArgument(
       abuilder.withName("maxDFPercent").withMinimum(1).withMaximum(1).create()).withDescription(
       "The max percentage of docs for the DF.  Can be used to remove really high frequency terms."
-          + " Expressed as an integer between 0 and 100. Default is 99.").withShortName("x").create();
+          + " Expressed as an integer between 0 and 100. Default is 99.  If maxDFSigma is also set, it will override this value.").withShortName("x").create();
+
+    Option maxDFSigmaOpt = obuilder.withLongName("maxDFSigma").withRequired(false).withArgument(
+      abuilder.withName("maxDFSigma").withMinimum(1).withMaximum(1).create()).withDescription(
+      "What portion of the tf (tf-idf) vectors to be used, expressed in times the standard deviation (sigma) of the document frequencies of these vectors." +
+              "  Can be used to remove really high frequency terms."
+          + " Expressed as a double value. Good value to be specified is 3.0. In case the value is less then 0 no vectors " +
+              "will be filtered out. Default is -1.0.  Overrides maxDFPercent").withShortName("xs").create();
     
     Option minLLROpt = obuilder.withLongName("minLLR").withRequired(false).withArgument(
       abuilder.withName("minLLR").withMinimum(1).withMaximum(1).create()).withDescription(
@@ -128,7 +139,7 @@ public final class SparseVectorsFromSequenceFiles extends AbstractJob {
     
     Group group = gbuilder.withName("Options").withOption(minSupportOpt).withOption(analyzerNameOpt)
         .withOption(chunkSizeOpt).withOption(outputDirOpt).withOption(inputDirOpt).withOption(minDFOpt)
-        .withOption(maxDFPercentOpt).withOption(weightOpt).withOption(powerOpt).withOption(minLLROpt)
+        .withOption(maxDFSigmaOpt).withOption(maxDFPercentOpt).withOption(weightOpt).withOption(powerOpt).withOption(minLLROpt)
         .withOption(numReduceTasksOpt).withOption(maxNGramSizeOpt).withOption(overwriteOutput)
         .withOption(helpOpt).withOption(sequentialAccessVectorOpt).withOption(namedVectorOpt)
         .withOption(logNormalizeOpt)
@@ -216,6 +227,10 @@ public final class SparseVectorsFromSequenceFiles extends AbstractJob {
       if (cmdLine.hasOption(maxDFPercentOpt)) {
         maxDFPercent = Integer.parseInt(cmdLine.getValue(maxDFPercentOpt).toString());
       }
+      double maxDFSigma = -1.0;
+      if (cmdLine.hasOption(maxDFSigmaOpt)) {
+    	  maxDFSigma = Double.parseDouble(cmdLine.getValue(maxDFSigmaOpt).toString());
+      }
       
       float norm = PartialVectorMerger.NO_NORMALIZING;
       if (cmdLine.hasOption(powerOpt)) {
@@ -246,17 +261,65 @@ public final class SparseVectorsFromSequenceFiles extends AbstractJob {
       if (cmdLine.hasOption(namedVectorOpt)) {
         namedVectors = true;
       }
-      if (!processIdf) {
-        DictionaryVectorizer.createTermFrequencyVectors(tokenizedPath, outputDir, conf, minSupport, maxNGramSize,
+      boolean shouldPrune = maxDFSigma >=0.0;
+      String tfDirName = shouldPrune ? DictionaryVectorizer.DOCUMENT_VECTOR_OUTPUT_FOLDER+"-toprune" : DictionaryVectorizer.DOCUMENT_VECTOR_OUTPUT_FOLDER;
+
+      if (!processIdf && !shouldPrune) {
+        DictionaryVectorizer.createTermFrequencyVectors(tokenizedPath, outputDir, tfDirName, conf, minSupport, maxNGramSize,
           minLLRValue, norm, logNormalize, reduceTasks, chunkSize, sequentialAccessOutput, namedVectors);
       } else if (processIdf) {
-        DictionaryVectorizer.createTermFrequencyVectors(tokenizedPath, outputDir, conf, minSupport, maxNGramSize,
+        DictionaryVectorizer.createTermFrequencyVectors(tokenizedPath, outputDir, tfDirName, conf, minSupport, maxNGramSize,
           minLLRValue, -1.0f, false, reduceTasks, chunkSize, sequentialAccessOutput, namedVectors);
-      
-        TFIDFConverter.processTfIdf(
-          new Path(outputDir, DictionaryVectorizer.DOCUMENT_VECTOR_OUTPUT_FOLDER),
-          outputDir, conf, chunkSize, minDf, maxDFPercent, norm, logNormalize,
-          sequentialAccessOutput, namedVectors, reduceTasks);
+      }
+      Pair<Long[], List<Path>> docFrequenciesFeatures = null;
+       // Should document frequency features be processed
+       if (shouldPrune || processIdf) {
+         docFrequenciesFeatures = TFIDFConverter.calculateDF(new Path(outputDir, tfDirName),
+                 outputDir, conf, chunkSize);
+       }
+
+       long maxDF = maxDFPercent;//if we are pruning by std dev, then this will get changed
+       if (shouldPrune) {
+         Path dfDir = new Path(outputDir, TFIDFConverter.WORDCOUNT_OUTPUT_FOLDER);
+         Path stdCalcDir = new Path(outputDir, HighDFWordsPruner.STD_CALC_DIR);
+
+         // Calculate the standard deviation
+         double stdDev = BasicStats.stdDevForGivenMean(dfDir, stdCalcDir, 0.0D, conf);
+         maxDF = (int) (maxDFSigma * stdDev);
+
+         // Prune the term frequency vectors
+         Path tfDir = new Path(outputDir, tfDirName);
+         Path prunedTFDir = new Path(outputDir, DictionaryVectorizer.DOCUMENT_VECTOR_OUTPUT_FOLDER);
+         Path prunedPartialTFDir = new Path(outputDir, DictionaryVectorizer.DOCUMENT_VECTOR_OUTPUT_FOLDER
+                 + "-partial");
+         if (processIdf) {
+           HighDFWordsPruner.pruneVectors(tfDir,
+                                          prunedTFDir,
+                                          prunedPartialTFDir,
+                                          maxDF,
+                                          conf,
+                                          docFrequenciesFeatures,
+                                          -1.0f,
+                                          false,
+                                          reduceTasks);
+         } else {
+           HighDFWordsPruner.pruneVectors(tfDir,
+                                          prunedTFDir,
+                                          prunedPartialTFDir,
+                                          maxDF,
+                                          conf,
+                                          docFrequenciesFeatures,
+                                          norm,
+                                          logNormalize,
+                                          reduceTasks);
+         }
+         HadoopUtil.delete(new Configuration(conf), tfDir);
+       }
+      if (processIdf){
+          TFIDFConverter.processTfIdf(
+                 new Path(outputDir, DictionaryVectorizer.DOCUMENT_VECTOR_OUTPUT_FOLDER),
+                 outputDir, conf, docFrequenciesFeatures, minDf, maxDF, norm, logNormalize,
+                 sequentialAccessOutput, namedVectors, reduceTasks);
       }
     } catch (OptionException e) {
       log.error("Exception", e);

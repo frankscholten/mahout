@@ -17,26 +17,25 @@
 
 package org.apache.mahout.classifier.df.mapreduce;
 
-import java.io.IOException;
-import java.net.URI;
-import java.util.Arrays;
-import java.util.Comparator;
-
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.mahout.common.HadoopUtil;
-import org.apache.mahout.common.StringUtils;
 import org.apache.mahout.classifier.df.DecisionForest;
 import org.apache.mahout.classifier.df.builder.TreeBuilder;
 import org.apache.mahout.classifier.df.data.Dataset;
+import org.apache.mahout.common.HadoopUtil;
+import org.apache.mahout.common.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.net.URI;
+import java.util.Arrays;
+import java.util.Comparator;
 
 /**
  * Base class for Mapred DecisionForest builders. Takes care of storing the parameters common to the mapred
@@ -75,11 +74,7 @@ public abstract class Builder {
   protected Path getDataPath() {
     return dataPath;
   }
-  
-  protected Path getDatasetPath() {
-    return datasetPath;
-  }
-  
+
   protected Long getSeed() {
     return seed;
   }
@@ -194,7 +189,7 @@ public abstract class Builder {
    * @throws IOException
    *           if we cannot get the default FileSystem
    */
-  public Path getOutputPath(Configuration conf) throws IOException {
+  protected Path getOutputPath(Configuration conf) throws IOException {
     // the output directory is accessed only by this class, so use the default
     // file system
     FileSystem fs = FileSystem.get(conf);
@@ -241,14 +236,13 @@ public abstract class Builder {
   /**
    * Used by the inheriting classes to configure the job
    * 
+   *
    * @param job
    *          Hadoop's Job
-   * @param nbTrees
-   *          number of trees to grow
    * @throws IOException
    *           if anything goes wrong while configuring the job
    */
-  protected abstract void configureJob(Job job, int nbTrees) throws IOException;
+  protected abstract void configureJob(Job job) throws IOException;
   
   /**
    * Sequential implementation should override this method to simulate the job execution
@@ -296,7 +290,7 @@ public abstract class Builder {
     Job job = new Job(conf, "decision forest builder");
     
     log.debug("Configuring the job...");
-    configureJob(job, nbTrees);
+    configureJob(job);
     
     log.debug("Running the job...");
     if (!runJob(job)) {

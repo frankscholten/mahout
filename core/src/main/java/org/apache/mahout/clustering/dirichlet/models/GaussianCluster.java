@@ -17,10 +17,13 @@
 
 package org.apache.mahout.clustering.dirichlet.models;
 
+import java.util.Iterator;
+
 import org.apache.mahout.clustering.AbstractCluster;
 import org.apache.mahout.clustering.Model;
 import org.apache.mahout.clustering.dirichlet.UncommonDistributions;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.Vector.Element;
 import org.apache.mahout.math.VectorWritable;
 
 public class GaussianCluster extends AbstractCluster {
@@ -45,18 +48,50 @@ public class GaussianCluster extends AbstractCluster {
     return new GaussianCluster(getCenter(), getRadius(), getId());
   }
   
+  /* (non-Javadoc)
+   * @see org.apache.mahout.clustering.AbstractCluster#setRadius(org.apache.mahout.math.Vector)
+   */
+  @Override
+  protected void setRadius(Vector s2) {
+    super.setRadius(s2);
+    computeProd2piR();
+  }
+
+  // the value of the zProduct(S*2pi) term. Calculated below.
+  private double zProd2piR;
+  
+  /**
+   * Compute the product(r[i]*SQRT2PI) over all i. Note that the cluster Radius
+   * corresponds to the Stdev of a Gaussian and the Center to its Mean.
+   */
+  private void computeProd2piR() {
+    zProd2piR = 1.0;
+    for (Iterator<Element> it = getRadius().iterateNonZero(); it.hasNext();) {
+      Element radius = it.next();
+      zProd2piR *= radius.get() * UncommonDistributions.SQRT2PI;
+    }
+  }
+
   @Override
   public double pdf(VectorWritable vw) {
-    Vector x = vw.get();
-    // return the product of the component pdfs
-    // TODO: is this reasonable? correct? It seems to work in some cases.
-    double pdf = 1;
-    for (int i = 0; i < x.size(); i++) {
-      // small prior on stdDev to avoid numeric instability when stdDev==0
-      pdf *= UncommonDistributions.dNorm(x.getQuick(i),
-          getCenter().getQuick(i), getRadius().getQuick(i) + 0.000001);
+    return Math.exp(-(sumXminusCdivRsquared(vw.get()) / 2)) / zProd2piR;
+  }
+  
+  /**
+   * @param x
+   *          a Vector
+   * @return the zSum(((x[i]-c[i])/r[i])^2) over all i
+   */
+  private double sumXminusCdivRsquared(Vector x) {
+    double result = 0;
+    for (Iterator<Element> it = getRadius().iterateNonZero(); it.hasNext();) {
+      Element radiusElem = it.next();
+      int index = radiusElem.index();
+      double quotient = (x.get(index) - getCenter().get(index))
+          / radiusElem.get();
+      result += quotient * quotient;
     }
-    return pdf;
+    return result;
   }
   
 }

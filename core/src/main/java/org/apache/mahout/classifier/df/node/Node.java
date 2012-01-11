@@ -17,12 +17,12 @@
 
 package org.apache.mahout.classifier.df.node;
 
+import org.apache.hadoop.io.Writable;
+import org.apache.mahout.classifier.df.data.Instance;
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-
-import org.apache.hadoop.io.Writable;
-import org.apache.mahout.classifier.df.data.Instance;
 
 /**
  * Represents an abstract node of a decision tree
@@ -40,7 +40,7 @@ public abstract class Node implements Writable {
    * 
    * @return -1 if the label cannot be predicted
    */
-  public abstract int classify(Instance instance);
+  public abstract double classify(Instance instance);
   
   /**
    * @return the total number of nodes of the tree

@@ -36,7 +36,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.mahout.common.CommandLineUtil;
 import org.apache.mahout.classifier.df.DFUtils;
 import org.apache.mahout.classifier.df.DecisionForest;
-import org.apache.mahout.classifier.df.builder.DefaultTreeBuilder;
+import org.apache.mahout.classifier.df.builder.DecisionTreeBuilder;
 import org.apache.mahout.classifier.df.data.Data;
 import org.apache.mahout.classifier.df.data.DataLoader;
 import org.apache.mahout.classifier.df.data.Dataset;
@@ -58,8 +58,15 @@ public class BuildForest extends Configured implements Tool {
   private Path datasetPath;
 
   private Path outputPath;
-  private int m; // Number of variables to select at each tree-node
+
+  private Integer m; // Number of variables to select at each tree-node
+
+  private boolean complemented; // tree is complemented
   
+  private Integer minSplitNum; // minimum number for split
+
+  private Double minVarianceProportion; // minimum proportion of the total variance for split
+
   private int nbTrees; // Number of trees to grow
   
   private Long seed; // Random seed
@@ -67,43 +74,63 @@ public class BuildForest extends Configured implements Tool {
   private boolean isPartial; // use partial data implementation
 
   @Override
-  public int run(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+  public int run(String[] args) throws IOException, ClassNotFoundException, InterruptedException,
+    InstantiationException, IllegalAccessException {
     
     DefaultOptionBuilder obuilder = new DefaultOptionBuilder();
     ArgumentBuilder abuilder = new ArgumentBuilder();
     GroupBuilder gbuilder = new GroupBuilder();
     
-    Option dataOpt = obuilder.withLongName("data").withShortName("d").withRequired(true).withArgument(
-      abuilder.withName("path").withMinimum(1).withMaximum(1).create()).withDescription("Data path").create();
+    Option dataOpt = obuilder.withLongName("data").withShortName("d").withRequired(true)
+        .withArgument(abuilder.withName("path").withMinimum(1).withMaximum(1).create())
+        .withDescription("Data path").create();
     
-    Option datasetOpt = obuilder.withLongName("dataset").withShortName("ds").withRequired(true).withArgument(
-      abuilder.withName("dataset").withMinimum(1).withMaximum(1).create()).withDescription("Dataset path")
-        .create();
+    Option datasetOpt = obuilder.withLongName("dataset").withShortName("ds").withRequired(true)
+        .withArgument(abuilder.withName("dataset").withMinimum(1).withMaximum(1).create())
+        .withDescription("Dataset path").create();
     
-    Option selectionOpt = obuilder.withLongName("selection").withShortName("sl").withRequired(true)
-        .withArgument(abuilder.withName("m").withMinimum(1).withMaximum(1).create()).withDescription(
-          "Number of variables to select randomly at each tree-node").create();
-    
-    Option seedOpt = obuilder.withLongName("seed").withShortName("sd").withRequired(false).withArgument(
-      abuilder.withName("seed").withMinimum(1).withMaximum(1).create()).withDescription(
-      "Optional, seed value used to initialise the Random number generator").create();
+    Option selectionOpt = obuilder.withLongName("selection").withShortName("sl").withRequired(false)
+        .withArgument(abuilder.withName("m").withMinimum(1).withMaximum(1).create())
+        .withDescription("Optional, Number of variables to select randomly at each tree-node.\n" +
+        "For classification problem, the default is square root of the number of explanatory variables.\n" +
+        "For regression problem, the default is 1/3 of the number of explanatory variables.").create();
+
+    Option noCompleteOpt = obuilder.withLongName("no-complete").withShortName("nc").withRequired(false)
+        .withDescription("Optional, The tree is not complemented").create();
+
+    Option minSplitOpt = obuilder.withLongName("minsplit").withShortName("ms").withRequired(false)
+        .withArgument(abuilder.withName("minsplit").withMinimum(1).withMaximum(1).create())
+        .withDescription("Optional, The tree-node is not divided, if the branching data size is " +
+        "smaller than this value.\nThe default is 2.").create();
+
+    Option minPropOpt = obuilder.withLongName("minprop").withShortName("mp").withRequired(false)
+        .withArgument(abuilder.withName("minprop").withMinimum(1).withMaximum(1).create())
+        .withDescription("Optional, The tree-node is not divided, if the proportion of the " +
+        "variance of branching data is smaller than this value.\n" +
+        "In the case of a regression problem, this value is used. " +
+        "The default is 1/1000(0.001).").create();
+
+    Option seedOpt = obuilder.withLongName("seed").withShortName("sd").withRequired(false)
+        .withArgument(abuilder.withName("seed").withMinimum(1).withMaximum(1).create())
+        .withDescription("Optional, seed value used to initialise the Random number generator").create();
     
     Option partialOpt = obuilder.withLongName("partial").withShortName("p").withRequired(false)
         .withDescription("Optional, use the Partial Data implementation").create();
     
-    Option nbtreesOpt = obuilder.withLongName("nbtrees").withShortName("t").withRequired(true).withArgument(
-      abuilder.withName("nbtrees").withMinimum(1).withMaximum(1).create()).withDescription(
-      "Number of trees to grow").create();
+    Option nbtreesOpt = obuilder.withLongName("nbtrees").withShortName("t").withRequired(true)
+        .withArgument(abuilder.withName("nbtrees").withMinimum(1).withMaximum(1).create())
+        .withDescription("Number of trees to grow").create();
     
-    Option outputOpt = obuilder.withLongName("output").withShortName("o").withRequired(true).withArgument(
-        abuilder.withName("path").withMinimum(1).withMaximum(1).create()).
-        withDescription("Output path, will contain the Decision Forest").create();
+    Option outputOpt = obuilder.withLongName("output").withShortName("o").withRequired(true)
+        .withArgument(abuilder.withName("path").withMinimum(1).withMaximum(1).create())
+        .withDescription("Output path, will contain the Decision Forest").create();
 
-    Option helpOpt = obuilder.withLongName("help").withDescription("Print out help").withShortName("h")
-        .create();
+    Option helpOpt = obuilder.withLongName("help").withShortName("h")
+        .withDescription("Print out help").create();
     
     Group group = gbuilder.withName("Options").withOption(dataOpt).withOption(datasetOpt)
-        .withOption(selectionOpt).withOption(seedOpt).withOption(partialOpt).withOption(nbtreesOpt)
+        .withOption(selectionOpt).withOption(noCompleteOpt).withOption(minSplitOpt)
+        .withOption(minPropOpt).withOption(seedOpt).withOption(partialOpt).withOption(nbtreesOpt)
         .withOption(outputOpt).withOption(helpOpt).create();
     
     try {
@@ -120,9 +147,18 @@ public class BuildForest extends Configured implements Tool {
       String dataName = cmdLine.getValue(dataOpt).toString();
       String datasetName = cmdLine.getValue(datasetOpt).toString();
       String outputName = cmdLine.getValue(outputOpt).toString();
-      m = Integer.parseInt(cmdLine.getValue(selectionOpt).toString());
       nbTrees = Integer.parseInt(cmdLine.getValue(nbtreesOpt).toString());
       
+      if (cmdLine.hasOption(selectionOpt)) {
+        m = Integer.parseInt(cmdLine.getValue(selectionOpt).toString());
+      }
+      complemented = !cmdLine.hasOption(noCompleteOpt);
+      if (cmdLine.hasOption(minSplitOpt)) {
+        minSplitNum = Integer.parseInt(cmdLine.getValue(minSplitOpt).toString());
+      }
+      if (cmdLine.hasOption(minPropOpt)) {
+        minVarianceProportion = Double.parseDouble(cmdLine.getValue(minPropOpt).toString());
+      }
       if (cmdLine.hasOption(seedOpt)) {
         seed = Long.valueOf(cmdLine.getValue(seedOpt).toString());
       }
@@ -132,11 +168,14 @@ public class BuildForest extends Configured implements Tool {
         log.debug("dataset : {}", datasetName);
         log.debug("output : {}", outputName);
         log.debug("m : {}", m);
+        log.debug("complemented : {}", complemented);
+        log.debug("minSplitNum : {}", minSplitNum);
+        log.debug("minVarianceProportion : {}", minVarianceProportion);
         log.debug("seed : {}", seed);
         log.debug("nbtrees : {}", nbTrees);
         log.debug("isPartial : {}", isPartial);
       }
-     
+
       dataPath = new Path(dataName);
       datasetPath = new Path(datasetName);
       outputPath = new Path(outputName);
@@ -160,8 +199,17 @@ public class BuildForest extends Configured implements Tool {
       return;
     }
 
-    DefaultTreeBuilder treeBuilder = new DefaultTreeBuilder();
-    treeBuilder.setM(m);
+    DecisionTreeBuilder treeBuilder = new DecisionTreeBuilder();
+    if (m != null) {
+      treeBuilder.setM(m);
+    }
+    treeBuilder.setComplemented(complemented);
+    if (minSplitNum != null) {
+      treeBuilder.setMinSplitNum(minSplitNum);
+    }
+    if (minVarianceProportion != null) {
+      treeBuilder.setMinVarianceProportion(minVarianceProportion);
+    }
     
     Builder forestBuilder;
     
@@ -201,10 +249,6 @@ public class BuildForest extends Configured implements Tool {
     return data;
   }
   
-  /**
-   * @param args
-   * @throws Exception
-   */
   public static void main(String[] args) throws Exception {
     ToolRunner.run(new Configuration(), new BuildForest(), args);
   }

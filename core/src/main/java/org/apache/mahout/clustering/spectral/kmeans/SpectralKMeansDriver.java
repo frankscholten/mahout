@@ -19,10 +19,8 @@ package org.apache.mahout.clustering.spectral.kmeans;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.mahout.clustering.Cluster;
-import org.apache.mahout.clustering.WeightedVectorWritable;
 import org.apache.mahout.clustering.kmeans.KMeansDriver;
 import org.apache.mahout.clustering.kmeans.RandomSeedGenerator;
 import org.apache.mahout.clustering.spectral.common.AffinityMatrixInputJob;
@@ -32,17 +30,13 @@ import org.apache.mahout.clustering.spectral.common.VectorMatrixMultiplicationJo
 import org.apache.mahout.common.AbstractJob;
 import org.apache.mahout.common.ClassUtils;
 import org.apache.mahout.common.HadoopUtil;
-import org.apache.mahout.common.Pair;
 import org.apache.mahout.common.commandline.DefaultOptionCreator;
 import org.apache.mahout.common.distance.DistanceMeasure;
-import org.apache.mahout.common.iterator.sequencefile.SequenceFileIterable;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.decomposer.lanczos.LanczosState;
 import org.apache.mahout.math.hadoop.DistributedRowMatrix;
 import org.apache.mahout.math.hadoop.decomposer.DistributedLanczosSolver;
 import org.apache.mahout.math.hadoop.decomposer.EigenVerificationJob;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Map;
@@ -51,8 +45,6 @@ import java.util.Map;
  * Implementation of the EigenCuts spectral clustering algorithm.
  */
 public class SpectralKMeansDriver extends AbstractJob {
-
-  private static final Logger log = LoggerFactory.getLogger(SpectralKMeansDriver.class);
 
   public static final double OVERSHOOT_MULTIPLIER = 2.0;
 
@@ -141,7 +133,7 @@ public class SpectralKMeansDriver extends AbstractJob {
     Vector D = MatrixDiagonalizeJob.runJob(affSeqFiles, numDims);
     DistributedRowMatrix L =
         VectorMatrixMultiplicationJob.runJob(affSeqFiles, D,
-            new Path(outputCalc, "laplacian-" + (System.nanoTime() & 0xFF)));
+            new Path(outputCalc, "laplacian-" + (System.nanoTime() & 0xFF)), new Path(outputCalc, "laplacian-tmp-" + (System.nanoTime() & 0xFF)));
     L.setConf(depConf);
 
     // Next step: perform eigen-decomposition using LanczosSolver
@@ -150,7 +142,7 @@ public class SpectralKMeansDriver extends AbstractJob {
     // unnecessary vectors later
     int overshoot = (int) ((double) clusters * OVERSHOOT_MULTIPLIER);
     DistributedLanczosSolver solver = new DistributedLanczosSolver();
-    LanczosState state = new LanczosState(L, overshoot, numDims, solver.getInitialVector(L));
+    LanczosState state = new LanczosState(L, numDims, solver.getInitialVector(L));
     Path lanczosSeqFiles = new Path(outputCalc, "eigenvectors-" + (System.nanoTime() & 0xFF));
     solver.runJob(conf,
                   state,
@@ -161,7 +153,7 @@ public class SpectralKMeansDriver extends AbstractJob {
     // perform a verification
     EigenVerificationJob verifier = new EigenVerificationJob();
     Path verifiedEigensPath = new Path(outputCalc, "eigenverifier");
-    verifier.runJob(conf, lanczosSeqFiles, L.getRowPath(), verifiedEigensPath, true, 1.0, 0.0, clusters);
+    verifier.runJob(conf, lanczosSeqFiles, L.getRowPath(), verifiedEigensPath, true, 1.0, clusters);
     Path cleanedEigens = verifier.getCleanedEigensPath();
     DistributedRowMatrix W = new DistributedRowMatrix(cleanedEigens, new Path(cleanedEigens, "tmp"), clusters, numDims);
     W.setConf(depConf);
@@ -181,6 +173,11 @@ public class SpectralKMeansDriver extends AbstractJob {
                                                            new Path(output, Cluster.INITIAL_CLUSTERS_DIR),
                                                            clusters,
                                                            measure);
+    
+    // The output format is the same as the K-means output format.
+    // TODO: Perhaps a conversion of the output format from points and clusters
+    // in eigenspace to the original dataset. Currently, the user has to perform
+    // the association step after this job finishes on their own.
     KMeansDriver.run(conf,
                      Wt.getRowPath(),
                      initialclusters,
@@ -190,16 +187,5 @@ public class SpectralKMeansDriver extends AbstractJob {
                      maxIterations,
                      true,
                      false);
-
-    // Read through the cluster assignments
-    Path clusteredPointsPath = new Path(output, "clusteredPoints");
-    Path inputPath = new Path(clusteredPointsPath, "part-m-00000");
-    int id = 0;
-    for (Pair<IntWritable,WeightedVectorWritable> record 
-         : new SequenceFileIterable<IntWritable, WeightedVectorWritable>(inputPath, conf)) {
-      log.info("{}: {}", id++, record.getFirst().get());
-    }
-
-    // TODO: output format???
   }
 }

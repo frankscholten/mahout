@@ -17,10 +17,10 @@
 
 package org.apache.mahout.classifier.df.split;
 
-import java.util.Arrays;
-
 import org.apache.mahout.classifier.df.data.Data;
 import org.apache.mahout.classifier.df.data.conditions.Condition;
+
+import java.util.Arrays;
 
 /**
  * Default, not optimized, implementation of IgSplit
@@ -56,7 +56,7 @@ public class DefaultIgSplit extends IgSplit {
   /**
    * Computes the Information Gain for a CATEGORICAL attribute
    */
-  protected double categoricalIg(Data data, int attr) {
+  double categoricalIg(Data data, int attr) {
     double[] values = data.values(attr);
     double hy = entropy(data); // H(Y)
     double hyx = 0.0; // H(Y|X)
@@ -73,7 +73,7 @@ public class DefaultIgSplit extends IgSplit {
   /**
    * Computes the Information Gain for a NUMERICAL attribute given a splitting value
    */
-  protected double numericalIg(Data data, int attr, double split) {
+  double numericalIg(Data data, int attr, double split) {
     double hy = entropy(data);
     double invDataSize = 1.0 / data.size();
     

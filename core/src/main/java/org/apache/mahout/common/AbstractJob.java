@@ -39,7 +39,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.InputFormat;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -104,6 +103,7 @@ public abstract class AbstractJob extends Configured implements Tool {
 
   /** internal list of options that have been added */
   private final List<Option> options;
+  private Group group;
 
   protected AbstractJob() {
     options = new LinkedList<Option>();
@@ -195,6 +195,10 @@ public abstract class AbstractJob extends Configured implements Tool {
     return option;
   }
 
+  protected Group getGroup() {
+    return group;
+  }
+
   /** Add the default input directory option, '-i' which takes a directory
    *  name as an argument. When {@link #parseArguments(String[])} is 
    *  called, the inputPath will be set based upon the value for this option.
@@ -250,6 +254,21 @@ public abstract class AbstractJob extends Configured implements Tool {
 
     return optBuilder.create();
   }
+  //convenience method
+
+  /**
+   *
+   * @param name The name of the option
+   * @return the {@link org.apache.commons.cli2.Option} with the name, else null
+   */
+  protected Option getCLIOption(String name){
+    for (Option option : options) {
+      if (option.getPreferredName().equals(name)){
+        return option;
+      }
+    }
+    return null;
+  }
 
   /** Parse the arguments specified based on the options defined using the 
    *  various {@code addOption} methods. If -h is specified or an
@@ -279,7 +298,7 @@ public abstract class AbstractJob extends Configured implements Tool {
       gBuilder = gBuilder.withOption(opt);
     }
 
-    Group group = gBuilder.create();
+    group = gBuilder.create();
 
     CommandLine cmdLine;
     try {
@@ -328,6 +347,20 @@ public abstract class AbstractJob extends Configured implements Tool {
    */
   public String getOption(String optionName) {
     return argMap.get(keyFor(optionName));
+  }
+
+  /**
+   * Get the option, else the default
+   * @param optionName The name of the option to look up, without the --
+   * @param defaultVal The default value.
+   * @return The requested option, else the default value if it doesn't exist
+   */
+  public String getOption(String optionName, String defaultVal){
+    String res = getOption(optionName);
+    if (res == null) {
+      res = defaultVal;
+    }
+    return res;
   }
 
   /**
@@ -453,7 +486,7 @@ public abstract class AbstractJob extends Configured implements Tool {
   protected Class<? extends Analyzer> getAnalyzerClassFromOption() throws ClassNotFoundException {
     Class<? extends Analyzer> analyzerClass = DefaultAnalyzer.class;
     if (hasOption(DefaultOptionCreator.ANALYZER_NAME_OPTION)) {
-      String className = getOption(DefaultOptionCreator.ANALYZER_NAME_OPTION).toString();
+      String className = getOption(DefaultOptionCreator.ANALYZER_NAME_OPTION);
       analyzerClass = Class.forName(className).asSubclass(Analyzer.class);
       // try instantiating it, b/c there isn't any point in setting it if
       // you can't instantiate it

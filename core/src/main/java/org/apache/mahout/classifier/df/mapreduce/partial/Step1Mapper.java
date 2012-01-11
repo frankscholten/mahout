@@ -17,14 +17,11 @@
 
 package org.apache.mahout.classifier.df.mapreduce.partial;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Random;
-
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.classifier.df.Bagging;
 import org.apache.mahout.classifier.df.data.Data;
 import org.apache.mahout.classifier.df.data.DataConverter;
@@ -33,11 +30,13 @@ import org.apache.mahout.classifier.df.mapreduce.Builder;
 import org.apache.mahout.classifier.df.mapreduce.MapredMapper;
 import org.apache.mahout.classifier.df.mapreduce.MapredOutput;
 import org.apache.mahout.classifier.df.node.Node;
+import org.apache.mahout.common.RandomUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+import java.io.IOException;
+import java.util.List;
+import java.util.Random;
 
 /**
  * First step of the Partial Data Builder. Builds the trees using the data available in the InputSplit.
@@ -80,7 +79,6 @@ public class Step1Mapper extends MapredMapper<LongWritable,Text,TreeID,MapredOut
   /**
    * Useful when testing
    * 
-   * @param seed
    * @param partition
    *          current mapper inputSplit partition
    * @param numMapTasks
@@ -156,7 +154,7 @@ public class Step1Mapper extends MapredMapper<LongWritable,Text,TreeID,MapredOut
     for (int treeId = 0; treeId < nbTrees; treeId++) {
       log.debug("Building tree number : {}", treeId);
       
-      Node tree = bagging.build(treeId, rng);
+      Node tree = bagging.build(rng);
       
       key.set(partition, firstTreeId + treeId);
       

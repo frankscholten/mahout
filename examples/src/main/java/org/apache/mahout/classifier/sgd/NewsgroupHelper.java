@@ -85,7 +85,7 @@ final class NewsgroupHelper {
       String line = reader.readLine();
       Reader dateString = new StringReader(DATE_FORMATS[leakType % 3].format(new Date(date)));
       countWords(analyzer, words, dateString, overallCounts);
-      while (line != null && line.length() > 0) {
+      while (line != null && !line.isEmpty()) {
         boolean countHeader = (
                 line.startsWith("From:") || line.startsWith("Subject:") ||
                         line.startsWith("Keywords:") || line.startsWith("Summary:")) && leakType < 6;
@@ -113,8 +113,10 @@ final class NewsgroupHelper {
     return v;
   }
 
-  static void countWords(Analyzer analyzer, Collection<String> words, Reader in, Multiset<String> overallCounts) 
-    throws IOException {
+  private static void countWords(Analyzer analyzer,
+                                 Collection<String> words,
+                                 Reader in,
+                                 Multiset<String> overallCounts) throws IOException {
     TokenStream ts = analyzer.reusableTokenStream("text", in);
     ts.addAttribute(CharTermAttribute.class);
     ts.reset();

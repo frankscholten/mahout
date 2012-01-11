@@ -1,5 +1,4 @@
-package org.apache.mahout.classifier.sgd;
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,6 +15,7 @@ package org.apache.mahout.classifier.sgd;
  * limitations under the License.
  */
 
+package org.apache.mahout.classifier.sgd;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Lists;
@@ -23,9 +23,11 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Ordering;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.io.Text;
+import org.apache.mahout.common.AbstractJob;
 import org.apache.mahout.common.Pair;
-import org.apache.mahout.common.iterator.sequencefile.PathFilters;
+
 import org.apache.mahout.common.iterator.sequencefile.PathType;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileDirIterator;
 import org.apache.mahout.ep.State;
@@ -37,42 +39,49 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
-/**
- *
- *
- **/
-public class TrainASFEmail {
-  private static final String[] LEAK_LABELS = {"none", "month-year", "day-month-year"};
+public final class TrainASFEmail extends AbstractJob {
 
-  private static Multiset<String> overallCounts;
+  //private static final String[] LEAK_LABELS = {"none", "month-year", "day-month-year"};
 
   private TrainASFEmail() {
   }
 
-  public static void main(String[] args) throws IOException {
-    File base = new File(args[0]);
-
-    overallCounts = HashMultiset.create();
-    File output = new File(args[1]);
-    output.mkdirs();
-    int numCats = Integer.parseInt(args[2]);
-    int cardinality = Integer.parseInt(args[3]);
-
-    int leakType = 0;
-    if (args.length > 4) {
-      leakType = Integer.parseInt(args[4]);
+  @Override
+  public int run(String[] args) throws Exception {
+    int result = 0;
+    addInputOption();
+    addOutputOption();
+    addOption("categories", "nc", "The number of categories to train on", true);
+    addOption("cardinality", "c", "The size of the vectors to use", "100000");
+    addOption("threads", "t", "The number of threads to use in the learner", "20");
+    addOption("poolSize", "p", "The number of CrossFoldLearners to use in the AdaptiveLogisticRegression.  Higher values require more memory.", "5");
+    if (parseArguments(args) == null) {
+      return -1;
     }
 
+    File base = new File(getInputPath().toString());
+
+    Multiset<String> overallCounts = HashMultiset.create();
+    File output = new File(getOutputPath().toString());
+    output.mkdirs();
+    int numCats = Integer.parseInt(getOption("categories"));
+    int cardinality = Integer.parseInt(getOption("cardinality", "100000"));
+    int threadCount = Integer.parseInt(getOption("threads", "20"));
+    int poolSize = Integer.parseInt(getOption("poolSize", "5"));
     Dictionary asfDictionary = new Dictionary();
-
-
-    AdaptiveLogisticRegression learningAlgorithm = new AdaptiveLogisticRegression(numCats, cardinality, new L1());
+    AdaptiveLogisticRegression learningAlgorithm = new AdaptiveLogisticRegression(numCats, cardinality, new L1(), threadCount, poolSize);
     learningAlgorithm.setInterval(800);
     learningAlgorithm.setAveragingWindow(500);
 
     //We ran seq2encoded and split input already, so let's just build up the dictionary
     Configuration conf = new Configuration();
-    SequenceFileDirIterator<Text, VectorWritable> iter = new SequenceFileDirIterator<Text, VectorWritable>(new Path(base.toString()), PathType.LIST, PathFilters.partFilter(),
+    PathFilter trainFilter = new PathFilter() {
+      @Override
+      public boolean accept(Path path) {
+        return path.getName().contains("training");
+      }
+    };
+    SequenceFileDirIterator<Text, VectorWritable> iter = new SequenceFileDirIterator<Text, VectorWritable>(new Path(base.toString()), PathType.LIST, trainFilter,
             null, true, conf);
     long numItems = 0;
     while (iter.hasNext()) {
@@ -84,11 +93,11 @@ public class TrainASFEmail {
     System.out.printf("%d training files\n", numItems);
 
 
-    int k = 0;
     SGDInfo info = new SGDInfo();
 
-    iter = new SequenceFileDirIterator<Text, VectorWritable>(new Path(base.toString()), PathType.LIST, PathFilters.partFilter(),
+    iter = new SequenceFileDirIterator<Text, VectorWritable>(new Path(base.toString()), PathType.LIST, trainFilter,
             null, true, conf);
+    int k = 0;
     while (iter.hasNext()) {
       Pair<Text, VectorWritable> next = iter.next();
       String ng = next.getFirst().toString();
@@ -98,7 +107,7 @@ public class TrainASFEmail {
       k++;
       State<AdaptiveLogisticRegression.Wrapper, CrossFoldLearner> best = learningAlgorithm.getBest();
 
-      SGDHelper.analyzeState(info, leakType, k, best);
+      SGDHelper.analyzeState(info, 0, k, best);
     }
     learningAlgorithm.close();
     //TODO: how to dissection since we aren't processing the files here
@@ -122,5 +131,11 @@ public class TrainASFEmail {
         break;
       }
     }
+    return result;
+  }
+
+  public static void main(String[] args) throws Exception {
+    TrainASFEmail trainer = new TrainASFEmail();
+    trainer.run(args);
   }
 }

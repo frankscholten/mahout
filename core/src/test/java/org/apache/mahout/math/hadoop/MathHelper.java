@@ -32,12 +32,16 @@ import org.apache.hadoop.io.SequenceFile;
 import org.apache.mahout.common.MahoutTestCase;
 import org.apache.mahout.common.Pair;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileIterable;
-import org.apache.mahout.math.*;
+import org.apache.mahout.math.DenseMatrix;
+import org.apache.mahout.math.DenseVector;
+import org.apache.mahout.math.Matrix;
+import org.apache.mahout.math.RandomAccessSparseVector;
+import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.VectorWritable;
 import org.apache.mahout.math.hadoop.DistributedRowMatrix.MatrixEntryWritable;
 import org.easymock.IArgumentMatcher;
 import org.easymock.EasyMock;
-
-import static org.junit.Assert.assertEquals;
+import org.junit.Assert;
 
 /**
  * a collection of small helper methods useful for unit-testing mathematical operations
@@ -143,8 +147,7 @@ public final class MathHelper {
       return false;
     }
     for (Vector.Element element : elements) {
-      boolean matches = Math.abs(element.get() - vector.get(element.index())) <= MahoutTestCase.EPSILON;
-      if (!matches) {
+      if (Math.abs(element.get() - vector.get(element.index())) > MahoutTestCase.EPSILON) {
         return false;
       }
     }
@@ -211,12 +214,12 @@ public final class MathHelper {
   }
 
   public static void assertMatrixEquals(Matrix expected, Matrix actual) {
-    assertEquals(expected.numRows(), actual.numRows());
-    assertEquals(actual.numCols(), actual.numCols());
+    Assert.assertEquals(expected.numRows(), actual.numRows());
+    Assert.assertEquals(actual.numCols(), actual.numCols());
     for (int row = 0; row < expected.numRows(); row++) {
       for (int col = 0; col < expected.numCols(); col ++) {
-        assertEquals("Non-matching values in [" + row + ',' + col + ']',
-            expected.get(row, col), actual.get(row, col), MahoutTestCase.EPSILON);
+        Assert.assertEquals("Non-matching values in [" + row + ',' + col + ']',
+                            expected.get(row, col), actual.get(row, col), MahoutTestCase.EPSILON);
       }
     }
   }
@@ -232,13 +235,13 @@ public final class MathHelper {
     String separator = "";
     for (Vector.Element e : v) {
       buffer.append(separator);
-      if (!Double.isNaN(e.get())) {
+      if (Double.isNaN(e.get())) {
+        buffer.append("  -  ");
+      } else {
         if (e.get() >= 0) {
-          buffer.append(" ");
+          buffer.append(' ');
         }
         buffer.append(df.format(e.get()));
-      } else {
-        buffer.append("  -  ");
       }
       separator = "\t";
     }
@@ -249,7 +252,7 @@ public final class MathHelper {
   public static String nice(Matrix matrix) {
     StringBuilder info = new StringBuilder();
     for (int n = 0; n < matrix.numRows(); n++) {
-      info.append(nice(matrix.viewRow(n))).append("\n");
+      info.append(nice(matrix.viewRow(n))).append('\n');
     }
     return info.toString();
   }

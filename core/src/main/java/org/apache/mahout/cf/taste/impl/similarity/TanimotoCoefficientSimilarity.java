@@ -64,20 +64,23 @@ public final class TanimotoCoefficientSimilarity extends AbstractItemSimilarity 
     DataModel dataModel = getDataModel();
     FastIDSet xPrefs = dataModel.getItemIDsFromUser(userID1);
     FastIDSet yPrefs = dataModel.getItemIDsFromUser(userID2);
-    
-    if (xPrefs.isEmpty() && yPrefs.isEmpty()) {
+
+    int xPrefsSize = xPrefs.size();
+    int yPrefsSize = yPrefs.size();
+    if (xPrefsSize == 0 && yPrefsSize == 0) {
       return Double.NaN;
     }
-    if (xPrefs.isEmpty() || yPrefs.isEmpty()) {
+    if (xPrefsSize == 0 || yPrefsSize == 0) {
       return 0.0;
     }
     
-    int intersectionSize = xPrefs.intersectionSize(yPrefs);
+    int intersectionSize =
+        xPrefsSize < yPrefsSize ? yPrefs.intersectionSize(xPrefs) : xPrefs.intersectionSize(yPrefs);
     if (intersectionSize == 0) {
       return Double.NaN;
     }
     
-    int unionSize = xPrefs.size() + yPrefs.size() - intersectionSize;
+    int unionSize = xPrefsSize + yPrefsSize - intersectionSize;
     
     return (double) intersectionSize / (double) unionSize;
   }
@@ -102,6 +105,9 @@ public final class TanimotoCoefficientSimilarity extends AbstractItemSimilarity 
   private double doItemSimilarity(long itemID1, long itemID2, int preferring1) throws TasteException {
     DataModel dataModel = getDataModel();
     int preferring1and2 = dataModel.getNumUsersWithPreferenceFor(itemID1, itemID2);
+    if (preferring1and2 == 0) {
+      return Double.NaN;
+    }
     int preferring2 = dataModel.getNumUsersWithPreferenceFor(itemID2);
     return (double) preferring1and2 / (double) (preferring1 + preferring2 - preferring1and2);
   }

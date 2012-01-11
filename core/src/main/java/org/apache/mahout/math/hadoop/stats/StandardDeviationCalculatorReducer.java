@@ -1,3 +1,4 @@
+package org.apache.mahout.math.hadoop.stats;
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -14,41 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.mahout.math.hadoop.stochasticsvd.qr;
 
-import org.apache.mahout.math.Matrix;
-import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.function.DoubleFunction;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.mapreduce.Reducer;
 
-/**
- * Gramm Schmidt quick helper.
- * 
- * 
- */
-public class GrammSchmidt {
+import java.io.IOException;
 
-  private GrammSchmidt() {
-  }
+public class StandardDeviationCalculatorReducer extends
+        Reducer<IntWritable, DoubleWritable, IntWritable, DoubleWritable> {
 
-  public static void orthonormalizeColumns(Matrix mx) {
-
-    int n = mx.numCols();
-
-    for (int c = 0; c < n; c++) {
-      Vector col = mx.viewColumn(c);
-      for (int c1 = 0; c1 < c; c1++) {
-        Vector viewC1 = mx.viewColumn(c1);
-        col.assign(col.minus(viewC1.times(viewC1.dot(col))));
-
-      }
-      final double norm2 = col.norm(2);
-      col.assign(new DoubleFunction() {
-        @Override
-        public double apply(double x) {
-          return x / norm2;
-        }
-      });
+  @Override
+  protected void reduce(IntWritable key, Iterable<DoubleWritable> values,
+                        Context context) throws IOException, InterruptedException {
+    double sum = 0.0;
+    for (DoubleWritable value : values) {
+      sum += value.get();
     }
+    context.write(key, new DoubleWritable(sum));
   }
-
 }

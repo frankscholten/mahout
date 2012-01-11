@@ -17,8 +17,6 @@
 
 package org.apache.mahout.classifier.sgd;
 
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Multiset;
 import org.apache.commons.cli2.CommandLine;
 import org.apache.commons.cli2.Group;
 import org.apache.commons.cli2.Option;
@@ -29,11 +27,11 @@ import org.apache.commons.cli2.commandline.Parser;
 import org.apache.commons.cli2.util.HelpFormatter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.io.Text;
 import org.apache.mahout.classifier.ClassifierResult;
 import org.apache.mahout.classifier.ResultAnalyzer;
 import org.apache.mahout.common.Pair;
-import org.apache.mahout.common.iterator.sequencefile.PathFilters;
 import org.apache.mahout.common.iterator.sequencefile.PathType;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileDirIterator;
 import org.apache.mahout.math.Vector;
@@ -67,13 +65,20 @@ public final class TestASFEmail {
 
     File base = new File(inputFile);
     //contains the best model
-    OnlineLogisticRegression classifier = ModelSerializer.readBinary(new FileInputStream(modelFile), OnlineLogisticRegression.class);
+    OnlineLogisticRegression classifier =
+        ModelSerializer.readBinary(new FileInputStream(modelFile), OnlineLogisticRegression.class);
 
 
     Dictionary asfDictionary = new Dictionary();
-    Multiset<String> overallCounts = HashMultiset.create();
+    //<String> overallCounts = HashMultiset.create();
     Configuration conf = new Configuration();
-    SequenceFileDirIterator<Text, VectorWritable> iter = new SequenceFileDirIterator<Text, VectorWritable>(new Path(base.toString()), PathType.LIST, PathFilters.partFilter(),
+    PathFilter testFilter = new PathFilter() {
+      @Override
+      public boolean accept(Path path) {
+        return path.getName().contains("test");
+      }
+    };
+    SequenceFileDirIterator<Text, VectorWritable> iter = new SequenceFileDirIterator<Text, VectorWritable>(new Path(base.toString()), PathType.LIST, testFilter,
             null, true, conf);
 
     long numItems = 0;
@@ -85,7 +90,7 @@ public final class TestASFEmail {
 
     System.out.printf("%d test files\n", numItems);
     ResultAnalyzer ra = new ResultAnalyzer(asfDictionary.values(), "DEFAULT");
-    iter = new SequenceFileDirIterator<Text, VectorWritable>(new Path(base.toString()), PathType.LIST, PathFilters.partFilter(),
+    iter = new SequenceFileDirIterator<Text, VectorWritable>(new Path(base.toString()), PathType.LIST, testFilter,
             null, true, conf);
     while (iter.hasNext()) {
       Pair<Text, VectorWritable> next = iter.next();
@@ -103,7 +108,7 @@ public final class TestASFEmail {
     output.printf("%s\n\n", ra.toString());
   }
 
-  protected boolean parseArgs(String[] args) {
+  boolean parseArgs(String[] args) {
     DefaultOptionBuilder builder = new DefaultOptionBuilder();
 
     Option help = builder.withLongName("help").withDescription("print this list").create();

@@ -18,12 +18,11 @@
 package org.apache.mahout.classifier.df.data;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.Lists;
+import org.apache.mahout.classifier.df.data.Dataset.Attribute;
 
 import java.util.List;
 import java.util.Locale;
-
-import com.google.common.collect.Lists;
-import org.apache.mahout.classifier.df.data.Dataset.Attribute;
 
 /**
  * Contains various methods that deal with descriptor strings
@@ -63,6 +62,7 @@ public final class DescriptorUtils {
    * Generates a valid descriptor string from a user-friendly representation.<br>
    * for example "3 N I N N 2 C L 5 I" generates "N N N I N N C C L I I I I I".<br>
    * this useful when describing datasets with a large number of attributes
+   * @throws DescriptorException
    */
   public static String generateDescriptor(CharSequence description) throws DescriptorException {
     return generateDescriptor(SPACE.split(description));
@@ -70,6 +70,7 @@ public final class DescriptorUtils {
   
   /**
    * Generates a valid descriptor string from a list of tokens
+   * @throws DescriptorException
    */
   public static String generateDescriptor(Iterable<String> tokens) throws DescriptorException {
     StringBuilder descriptor = new StringBuilder();
