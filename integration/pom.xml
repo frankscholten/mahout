@@ -125,7 +125,12 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- 3rd party -->
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>mahout-core</artifactId>
+    </dependency>
+
+      <!-- 3rd party -->
 
     <dependency>
       <groupId>commons-dbcp</groupId>
