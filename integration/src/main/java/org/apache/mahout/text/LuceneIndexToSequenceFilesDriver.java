@@ -29,7 +29,14 @@ import org.apache.commons.cli2.commandline.Parser;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.queryParser.ParseException;
+import org.apache.lucene.queryParser.QueryParser;
+import org.apache.lucene.search.MatchAllDocsQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.util.Version;
 import org.apache.mahout.common.AbstractJob;
+import org.apache.mahout.common.CommandLineUtil;
 import org.apache.mahout.common.commandline.DefaultOptionCreator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,97 +52,132 @@ import static java.util.Arrays.asList;
  */
 public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
 
-    public static final String OPTION_EXTRA_FIELDS = "extraFields";
-    public static final String OPTION_ID_FIELD = "idField";
+  static final String OPTION_LUCENE_DIRECTORY = "dir";
+  static final String OPTION_EXTRA_FIELDS = "extraFields";
+  static final String OPTION_ID_FIELD = "idField";
+  static final String OPTION_QUERY = "query";
+  static final String OPTION_MAX_HITS = "maxHits";
 
-    private static final String DEFAULT_ID_FIELD = "id";
+  static final Query DEFAULT_QUERY = new MatchAllDocsQuery();
+  static final int DEFAULT_MAX_HITS = Integer.MAX_VALUE;
 
-    private static final String SEPARATOR_EXTRA_FIELDS = ",";
+  static final String SEPARATOR_EXTRA_FIELDS = ",";
 
-    private static final Logger log = LoggerFactory.getLogger(LuceneIndexToSequenceFilesDriver.class);
+  private static final Logger log = LoggerFactory.getLogger(LuceneIndexToSequenceFilesDriver.class);
 
-    public static void main(String[] args) throws Exception {
-        ToolRunner.run(new LuceneIndexToSequenceFilesDriver(), args);
-    }
+  public static void main(String[] args) throws Exception {
+    ToolRunner.run(new LuceneIndexToSequenceFilesDriver(), args);
+  }
 
-    @Override
-    public int run(String[] args) throws Exception {
+  @Override
+  public int run(String[] args) throws Exception {
+    DefaultOptionBuilder obuilder = new DefaultOptionBuilder();
+    ArgumentBuilder abuilder = new ArgumentBuilder();
+    GroupBuilder gbuilder = new GroupBuilder();
+
+    Option inputOpt = obuilder.withLongName(OPTION_LUCENE_DIRECTORY).withRequired(true).withArgument(
+      abuilder.withName(OPTION_LUCENE_DIRECTORY).withMinimum(1).withMaximum(1).create())
+      .withDescription("The Lucene directory").withShortName("d").create();
+
+    Option outputDirOpt = DefaultOptionCreator.outputOption().create();
+
+    Option idFieldOpt = obuilder.withLongName(OPTION_ID_FIELD).withRequired(true).withArgument(
+      abuilder.withName(OPTION_ID_FIELD).withMinimum(1).withMaximum(1).create()).withShortName("i").withDescription(
+      "The field in the index containing the id").create();
+
+    Option fieldOpt = obuilder.withLongName("field").withRequired(true).withArgument(
+      abuilder.withName("field").withMinimum(1).withMaximum(1).create()).withDescription(
+      "The stored field in the index containing text").withShortName("f").create();
+
+    Option extraFieldsOpt = obuilder.withLongName(OPTION_EXTRA_FIELDS).withRequired(false).withArgument(
+      abuilder.withName(OPTION_EXTRA_FIELDS).withMinimum(1).withMaximum(1).create()).withDescription(
+      "(Optional) Extra stored fields. Comma separated").withShortName("e").create();
+
+    Option queryOpt = obuilder.withLongName(OPTION_QUERY).withRequired(false).withArgument(
+      abuilder.withName(OPTION_QUERY).withMinimum(1).withMaximum(1).create()).withDescription(
+      "(Optional) Lucene query. Defaults to " + DEFAULT_QUERY.getClass().getSimpleName()).withShortName("q").create();
+
+    Option maxHitsOpt = obuilder.withLongName(OPTION_MAX_HITS).withRequired(false).withArgument(
+      abuilder.withName(OPTION_MAX_HITS).withMinimum(1).withMaximum(1).create()).withDescription(
+      "(Optional) Max hits. Defaults to " + DEFAULT_MAX_HITS).withShortName("n").create();
+
+    Option helpOpt = obuilder.withLongName("help").withDescription("Print out help").withShortName("h")
+      .create();
+
+    Group group = gbuilder.withName("Options").withOption(inputOpt).withOption(outputDirOpt)
+      .withOption(idFieldOpt).withOption(fieldOpt).withOption(extraFieldsOpt)
+      .withOption(queryOpt).withOption(maxHitsOpt).withOption(helpOpt).create();
+
+    try {
+      Parser parser = new Parser();
+      parser.setGroup(group);
+      parser.setHelpOption(helpOpt);
+      CommandLine cmdLine = parser.parse(args);
+
+      if (cmdLine.hasOption(helpOpt)) {
+        CommandLineUtil.printHelp(group);
+        return -1;
+      }
+
+      Configuration configuration = getConf();
+      if (configuration == null) {
+        configuration = new Configuration();
+      }
+
+      String indexLocation = ((String) cmdLine.getValue(inputOpt));
+      Path sequenceFilesOutputPath = new Path((String) cmdLine.getValue(outputDirOpt));
+
+      String idField = (String) cmdLine.getValue(idFieldOpt);
+      String field = (String) cmdLine.getValue(fieldOpt);
+
+      LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = newLucene2SeqConfiguration(configuration,
+        indexLocation,
+        sequenceFilesOutputPath,
+        idField,
+        field);
+
+      if (cmdLine.hasOption(extraFieldsOpt)) {
+        String extraFields = (String) cmdLine.getValue(extraFieldsOpt);
+        lucene2SeqConf.setExtraFields(asList(extraFields.split(SEPARATOR_EXTRA_FIELDS)));
+      }
+
+      Query query = DEFAULT_QUERY;
+      if (cmdLine.hasOption(queryOpt)) {
         try {
-            LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = createConfguration(args);
-            new LuceneIndexToSequenceFiles().run(lucene2SeqConf);
-        } catch (OptionException e) {
-            log.error("Exception", e);
-//            CommandLineUtil.printHelp(group);
+          String queryString = ((String) cmdLine.getValue(queryOpt)).replaceAll("'", "");
+          QueryParser queryParser = new QueryParser(Version.LUCENE_35, queryString, new StandardAnalyzer(Version.LUCENE_35));
+          query = queryParser.parse(queryString);
+        } catch (ParseException e) {
+          throw new IllegalArgumentException(e.getMessage(), e);
         }
-        return 0;
+      }
+      lucene2SeqConf.setQuery(query);
+
+      int maxHits = DEFAULT_MAX_HITS;
+      if (cmdLine.hasOption(maxHitsOpt)) {
+        String maxHitsString = (String) cmdLine.getValue(maxHitsOpt);
+        maxHits = Integer.valueOf(maxHitsString);
+      }
+      lucene2SeqConf.setMaxHits(maxHits);
+
+      new LuceneIndexToSequenceFiles().run(lucene2SeqConf);
+    } catch (OptionException e) {
+      log.error("Exception", e);
+      CommandLineUtil.printHelp(group);
     }
+    return 0;
+  }
 
-    private LuceneIndexToSequenceFilesConfiguration createConfguration(String[] args) throws OptionException {
-        DefaultOptionBuilder obuilder = new DefaultOptionBuilder();
-        ArgumentBuilder abuilder = new ArgumentBuilder();
-        GroupBuilder gbuilder = new GroupBuilder();
-
-        Option inputOpt = obuilder.withLongName("dir").withRequired(true).withArgument(
-                abuilder.withName("dir").withMinimum(1).withMaximum(1).create())
-                .withDescription("The Lucene directory").withShortName("d").create();
-
-        Option outputDirOpt = DefaultOptionCreator.outputOption().create();
-
-        Option idFieldOpt = obuilder.withLongName(OPTION_ID_FIELD).withRequired(false).withArgument(
-                abuilder.withName(OPTION_ID_FIELD).withMinimum(1).withMaximum(1).create()).withShortName("i").withDescription(
-                "The field in the index containing the index.  If null, then the Lucene internal doc "
-                        + "id is used which is prone to error if the underlying index changes").create();
-
-        Option fieldOpt = obuilder.withLongName("field").withRequired(true).withArgument(
-                abuilder.withName("field").withMinimum(1).withMaximum(1).create()).withDescription(
-                "The field in the index").withShortName("f").create();
-
-        Option extraFieldsOpt = obuilder.withLongName(OPTION_EXTRA_FIELDS).withRequired(false).withArgument(
-                abuilder.withName(OPTION_EXTRA_FIELDS).withMinimum(1).withMaximum(1).create()).withDescription(
-                "(Optional) Extra stored fields. Comma separated").withShortName("e").create();
-
-        Group group = gbuilder.withName("Options").withOption(inputOpt).withOption(outputDirOpt)
-                              .withOption(idFieldOpt).withOption(fieldOpt).withOption(extraFieldsOpt).create();
-
-        Parser parser = new Parser();
-        parser.setGroup(group);
-        CommandLine cmdLine = parser.parse(args);
-
-        Configuration configuration = getConf();
-        if (configuration == null) {
-            configuration = new Configuration();
-        }
-
-        String indexLocation = ((String) cmdLine.getValue(inputOpt));
-        Path sequenceFilesOutputPath = new Path((String) cmdLine.getValue(outputDirOpt));
-
-        String idField = DEFAULT_ID_FIELD;
-        if (cmdLine.hasOption(idFieldOpt)) {
-            idField = (String) cmdLine.getValue(idFieldOpt);
-        }
-
-        String field = (String) cmdLine.getValue(fieldOpt);
-
-        LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = newLucene2SeqConfiguration(configuration, indexLocation, sequenceFilesOutputPath, idField, field);
-
-        if (cmdLine.hasOption(extraFieldsOpt)) {
-            String extraFields = (String) cmdLine.getValue(extraFieldsOpt);
-            lucene2SeqConf.setExtraFields(asList(extraFields.split(SEPARATOR_EXTRA_FIELDS)));
-        }
-
-        return lucene2SeqConf;
-    }
-
-    public LuceneIndexToSequenceFilesConfiguration newLucene2SeqConfiguration(Configuration configuration,
-                                                                              String indexLocation,
-                                                                              Path sequenceFilesOutputPath,
-                                                                              String idField,
-                                                                              String field) {
-        return new LuceneIndexToSequenceFilesConfiguration(
-                configuration,
-                new File(indexLocation),
-                sequenceFilesOutputPath,
-                idField,
-                field);
-    }
+  public LuceneIndexToSequenceFilesConfiguration newLucene2SeqConfiguration(Configuration configuration,
+                                                                            String indexLocation,
+                                                                            Path sequenceFilesOutputPath,
+                                                                            String idField,
+                                                                            String field) {
+    return new LuceneIndexToSequenceFilesConfiguration(
+      configuration,
+      new File(indexLocation),
+      sequenceFilesOutputPath,
+      idField,
+      field);
+  }
 }
