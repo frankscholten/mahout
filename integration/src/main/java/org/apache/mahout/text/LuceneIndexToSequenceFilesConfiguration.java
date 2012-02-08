@@ -39,24 +39,26 @@ public class LuceneIndexToSequenceFilesConfiguration {
 
   private static final Query DEFAULT_QUERY = new MatchAllDocsQuery();
   private static final int DEFAULT_MAX_HITS = Integer.MAX_VALUE;
+  @SuppressWarnings("unchecked")
+  private static final List<String> DEFAULT_EMPTY_FIELDS = Collections.EMPTY_LIST;
 
   private Configuration configuration;
   private File indexLocation;
   private Path sequenceFilesOutputPath;
   private String idField;
   private String field;
+  private List<String> extraFields;
   private Query query;
   private int maxHits;
-  private List<String> extraFields;
 
   /**
    * Create a configuration bean with all mandatory parameters.
    *
-   * @param configuration Hadoop configuration for writing sequencefiles
-   * @param indexLocation location of the index
+   * @param configuration           Hadoop configuration for writing sequencefiles
+   * @param indexLocation           location of the index
    * @param sequenceFilesOutputPath path to output the sequence file
-   * @param idField field used for the key of the sequence file
-   * @param field field used for the value of the sequence file
+   * @param idField                 field used for the key of the sequence file
+   * @param field                   field used for the value of the sequence file
    */
   public LuceneIndexToSequenceFilesConfiguration(Configuration configuration, File indexLocation, Path sequenceFilesOutputPath, String idField, String field) {
     Preconditions.checkArgument(configuration != null, "Parameter 'configuration' cannot be null");
@@ -71,6 +73,7 @@ public class LuceneIndexToSequenceFilesConfiguration {
     this.idField = idField;
     this.field = field;
 
+    setExtraFields(DEFAULT_EMPTY_FIELDS);
     setQuery(DEFAULT_QUERY);
     setMaxHits(DEFAULT_MAX_HITS);
   }
@@ -122,7 +125,7 @@ public class LuceneIndexToSequenceFilesConfiguration {
   public FieldSelector getFieldSelector() {
     Set<String> fieldSet = Sets.newHashSet(idField, field);
     if (extraFields != null) {
-        fieldSet.addAll(extraFields);
+      fieldSet.addAll(extraFields);
     }
     return new SetBasedFieldSelector(fieldSet, Collections.<String>emptySet());
   }
