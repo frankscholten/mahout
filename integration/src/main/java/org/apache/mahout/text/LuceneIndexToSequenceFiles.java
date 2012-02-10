@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Fieldable;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
@@ -31,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
@@ -39,6 +41,8 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  * Configure this class with a {@link LuceneIndexToSequenceFilesConfiguration} bean.
  */
 public class LuceneIndexToSequenceFiles {
+
+    public static final String FIELD_SEPARATOR = " ";
 
     private static final Logger log = LoggerFactory.getLogger(LuceneIndexToSequenceFiles.class);
 
@@ -65,7 +69,7 @@ public class LuceneIndexToSequenceFiles {
         if (scorer != null) {
             int processedDocs = 0;
             int docId;
-
+            
             while ((docId = scorer.nextDoc()) != NO_MORE_DOCS && processedDocs < lucene2seqConf.getMaxHits()) {
                 Document doc = reader.document(docId, lucene2seqConf.getFieldSelector());
 
@@ -74,7 +78,6 @@ public class LuceneIndexToSequenceFiles {
                 String fieldValue = doc.get(field);
 
                 if (fieldValue == null) {
-                    log.info("Null value for document {} field {}", idValue, field);
                     continue;
                 }
 
@@ -82,7 +85,9 @@ public class LuceneIndexToSequenceFiles {
                 if (lucene2seqConf.getExtraFields() != null && !lucene2seqConf.getExtraFields().isEmpty()) {
                     for (String extraField : lucene2seqConf.getExtraFields()) {
                         String extraFieldValue = doc.get(extraField);
-                        fieldValueBuilder.append(" ").append(extraFieldValue);
+                        if (!isBlank(extraFieldValue)) {
+                            fieldValueBuilder.append(FIELD_SEPARATOR).append(extraFieldValue);
+                        }
                     }
                 }
 
