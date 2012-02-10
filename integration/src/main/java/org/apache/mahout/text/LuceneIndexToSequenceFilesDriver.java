@@ -62,10 +62,11 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
   static final int DEFAULT_MAX_HITS = Integer.MAX_VALUE;
 
   static final String SEPARATOR_EXTRA_FIELDS = ",";
+  static final String QUERY_DELIMITER = "'";
 
   private static final Logger log = LoggerFactory.getLogger(LuceneIndexToSequenceFilesDriver.class);
 
-  public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
     ToolRunner.run(new LuceneIndexToSequenceFilesDriver(), args);
   }
 
@@ -144,7 +145,7 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
       Query query = DEFAULT_QUERY;
       if (cmdLine.hasOption(queryOpt)) {
         try {
-          String queryString = ((String) cmdLine.getValue(queryOpt)).replaceAll("'", "");
+          String queryString = ((String) cmdLine.getValue(queryOpt)).replaceAll(QUERY_DELIMITER, "");
           QueryParser queryParser = new QueryParser(Version.LUCENE_35, queryString, new StandardAnalyzer(Version.LUCENE_35));
           query = queryParser.parse(queryString);
         } catch (ParseException e) {
