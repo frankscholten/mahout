@@ -66,7 +66,7 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
 
   private static final Logger log = LoggerFactory.getLogger(LuceneIndexToSequenceFilesDriver.class);
 
-    public static void main(String[] args) throws Exception {
+  public static void main(String[] args) throws Exception {
     ToolRunner.run(new LuceneIndexToSequenceFilesDriver(), args);
   }
 

@@ -17,6 +17,7 @@
 
 package org.apache.mahout.text;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.lucene.document.Document;
@@ -26,8 +27,10 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
+import org.apache.mahout.common.HadoopUtil;
 import org.apache.mahout.vectorizer.DefaultAnalyzer;
 import org.easymock.EasyMock;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -36,7 +39,9 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 
 import static java.util.Arrays.asList;
-import static org.easymock.EasyMock.*;
+import static org.easymock.EasyMock.eq;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -62,11 +67,11 @@ public class LuceneIndexToSequenceFilesDriverTest {
     indexDocuments(new SimpleDocument("1", "Mahout is cool"));
   }
 
-//  @After
-//  public void after() throws IOException {
-//    HadoopUtil.delete(conf, seqFilesOutputPath);
-//    FileUtils.deleteDirectory(indexLocation);
-//  }
+  @After
+  public void after() throws IOException {
+    HadoopUtil.delete(conf, seqFilesOutputPath);
+    FileUtils.deleteDirectory(indexLocation);
+  }
 
   @Test
   public void testNewLucene2SeqConfiguration() {
