@@ -32,8 +32,11 @@ import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 
+import static org.apache.commons.lang.StringUtils.isBlank;
+import static org.apache.commons.lang.StringUtils.isNotBlank;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
 /**
@@ -53,7 +56,7 @@ public class LuceneIndexToSequenceFiles {
    * @throws java.io.IOException if index cannot be opened or sequence file could not be written
    */
   public void run(LuceneIndexToSequenceFilesConfiguration lucene2seqConf) throws IOException {
-    Directory directory = FSDirectory.open(lucene2seqConf.getIndexLocation());
+    Directory directory = FSDirectory.open(new File(lucene2seqConf.getIndexPath().toString()));
     IndexReader reader = IndexReader.open(directory, true);
     IndexSearcher searcher = new IndexSearcher(reader);
     Configuration configuration = lucene2seqConf.getConfiguration();
@@ -85,7 +88,7 @@ public class LuceneIndexToSequenceFiles {
         if (lucene2seqConf.getExtraFields() != null && !lucene2seqConf.getExtraFields().isEmpty()) {
           for (String extraField : lucene2seqConf.getExtraFields()) {
             String extraFieldValue = doc.get(extraField);
-            if (!isBlank(extraFieldValue)) {
+            if (isNotBlank(extraFieldValue)) {
               fieldValueBuilder.append(FIELD_SEPARATOR).append(extraFieldValue);
             }
           }
@@ -118,9 +121,5 @@ public class LuceneIndexToSequenceFiles {
     directory.close();
     searcher.close();
     reader.close();
-  }
-
-  private boolean isBlank(String idValue) {
-    return idValue == null || idValue.equals("");
   }
 }

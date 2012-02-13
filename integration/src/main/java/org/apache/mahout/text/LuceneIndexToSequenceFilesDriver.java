@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 
 import static java.util.Arrays.asList;
+import static org.apache.mahout.common.commandline.DefaultOptionCreator.*;
 
 /**
  * Driver class for the lucene2seq program. Converts text contents of stored fields of a lucene index into a Hadoop
@@ -57,6 +58,7 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
   static final String OPTION_ID_FIELD = "idField";
   static final String OPTION_QUERY = "query";
   static final String OPTION_MAX_HITS = "maxHits";
+  static final String OPTION_METHOD = "method";
 
   static final Query DEFAULT_QUERY = new MatchAllDocsQuery();
   static final int DEFAULT_MAX_HITS = Integer.MAX_VALUE;
@@ -80,7 +82,7 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
       abuilder.withName(OPTION_LUCENE_DIRECTORY).withMinimum(1).withMaximum(1).create())
       .withDescription("The Lucene directory").withShortName("d").create();
 
-    Option outputDirOpt = DefaultOptionCreator.outputOption().create();
+    Option outputDirOpt = outputOption().create();
 
     Option idFieldOpt = obuilder.withLongName(OPTION_ID_FIELD).withRequired(true).withArgument(
       abuilder.withName(OPTION_ID_FIELD).withMinimum(1).withMaximum(1).create()).withShortName("i").withDescription(
@@ -102,12 +104,17 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
       abuilder.withName(OPTION_MAX_HITS).withMinimum(1).withMaximum(1).create()).withDescription(
       "(Optional) Max hits. Defaults to " + DEFAULT_MAX_HITS).withShortName("n").create();
 
+    Option methodOpt = obuilder.withLongName(OPTION_METHOD).withRequired(false).withArgument(
+      abuilder.withName(OPTION_METHOD).withMinimum(1).withMaximum(1).create()).withDescription(
+      "(Optional) Execution Method sequential | mapreduce. Default Value: mapreduce").withShortName("x")
+      .create();
+
     Option helpOpt = obuilder.withLongName("help").withDescription("Print out help").withShortName("h")
       .create();
 
     Group group = gbuilder.withName("Options").withOption(inputOpt).withOption(outputDirOpt)
       .withOption(idFieldOpt).withOption(fieldOpt).withOption(extraFieldsOpt)
-      .withOption(queryOpt).withOption(maxHitsOpt).withOption(helpOpt).create();
+      .withOption(queryOpt).withOption(maxHitsOpt).withOption(methodOpt).withOption(helpOpt).create();
 
     try {
       Parser parser = new Parser();
@@ -161,7 +168,12 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
       }
       lucene2SeqConf.setMaxHits(maxHits);
 
-      new LuceneIndexToSequenceFiles().run(lucene2SeqConf);
+      if (cmdLine.hasOption(methodOpt) && cmdLine.getValue(methodOpt).equals("sequential")) {
+        new LuceneIndexToSequenceFiles().run(lucene2SeqConf);
+      } else {
+        new LuceneIndexToSequenceFilesJob().run(lucene2SeqConf);
+      }
+
     } catch (OptionException e) {
       log.error("Exception", e);
       CommandLineUtil.printHelp(group);
@@ -176,7 +188,7 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
                                                                             String field) {
     return new LuceneIndexToSequenceFilesConfiguration(
       configuration,
-      new File(indexLocation),
+      new Path(indexLocation),
       sequenceFilesOutputPath,
       idField,
       field);
