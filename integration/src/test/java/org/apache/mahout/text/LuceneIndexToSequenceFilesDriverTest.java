@@ -17,7 +17,6 @@
 
 package org.apache.mahout.text;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.lucene.document.Document;
@@ -39,9 +38,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 
 import static java.util.Arrays.asList;
-import static org.easymock.EasyMock.eq;
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
+import static org.easymock.EasyMock.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -49,7 +46,7 @@ public class LuceneIndexToSequenceFilesDriverTest {
 
   private LuceneIndexToSequenceFilesDriver driver;
   private LuceneIndexToSequenceFilesConfiguration lucene2SeqConf;
-  private File indexLocation;
+  private Path indexPath;
   private String idField;
   private String field;
   private Path seqFilesOutputPath;
@@ -58,19 +55,20 @@ public class LuceneIndexToSequenceFilesDriverTest {
   @Before
   public void before() throws Exception {
     conf = new Configuration();
-    indexLocation = new File("/tmp", getClass().getSimpleName());
+    indexPath = new Path("/tmp", getClass().getSimpleName());
 
     seqFilesOutputPath = new Path("seqfiles");
     idField = "id";
     field = "field";
 
     indexDocuments(new SimpleDocument("1", "Mahout is cool"));
+    indexDocuments(new SimpleDocument("2", "Mahout is cool"));
   }
 
   @After
   public void after() throws IOException {
     HadoopUtil.delete(conf, seqFilesOutputPath);
-    FileUtils.deleteDirectory(indexLocation);
+    HadoopUtil.delete(conf, indexPath);
   }
 
   @Test
@@ -78,13 +76,13 @@ public class LuceneIndexToSequenceFilesDriverTest {
     driver = new LuceneIndexToSequenceFilesDriver();
 
     lucene2SeqConf = driver.newLucene2SeqConfiguration(conf,
-      indexLocation.getAbsolutePath(),
+      indexPath.toString(),
       seqFilesOutputPath,
       idField,
       field);
 
     assertEquals(conf, lucene2SeqConf.getConfiguration());
-    assertEquals(indexLocation, lucene2SeqConf.getIndexLocation());
+    assertEquals(indexPath, lucene2SeqConf.getIndexPath());
     assertEquals(seqFilesOutputPath, lucene2SeqConf.getSequenceFilesOutputPath());
     assertEquals(idField, lucene2SeqConf.getIdField());
     assertEquals(field, lucene2SeqConf.getField());
@@ -99,21 +97,22 @@ public class LuceneIndexToSequenceFilesDriverTest {
     String extraField2 = "extraField2";
 
     String[] args = new String[]{
-      "-d", indexLocation.getAbsolutePath(),
+      "-d", indexPath.toString(),
       "-o", seqFilesOutputPath.toString(),
       "-i", idField,
       "-f", field,
       "-q", queryField + ":" + queryTerm,
       "-n", maxHits,
       "-e", extraField1 + "," + extraField2,
+      "-x", "sequential"
     };
 
-    stubLucene2SeqConfiguration(conf, indexLocation.getAbsolutePath(), seqFilesOutputPath, idField, field);
+    stubLucene2SeqConfiguration(conf, indexPath.toString(), seqFilesOutputPath, idField, field);
 
     driver.setConf(conf);
     driver.run(args);
 
-    assertEquals(indexLocation, lucene2SeqConf.getIndexLocation());
+    assertEquals(indexPath, lucene2SeqConf.getIndexPath());
     assertEquals(seqFilesOutputPath, lucene2SeqConf.getSequenceFilesOutputPath());
     assertEquals(idField, lucene2SeqConf.getIdField());
     assertEquals(field, lucene2SeqConf.getField());
@@ -128,18 +127,18 @@ public class LuceneIndexToSequenceFilesDriverTest {
   @Test
   public void testRun_optionalArguments() throws Exception {
     String[] args = new String[]{
-      "-d", indexLocation.getAbsolutePath(),
+      "-d", indexPath.toString(),
       "-o", seqFilesOutputPath.toString(),
       "-i", idField,
       "-f", field
     };
 
-    stubLucene2SeqConfiguration(conf, indexLocation.getAbsolutePath(), seqFilesOutputPath, idField, field);
+    stubLucene2SeqConfiguration(conf, indexPath.toString(), seqFilesOutputPath, idField, field);
 
     driver.setConf(conf);
     driver.run(args);
 
-    assertEquals(indexLocation, lucene2SeqConf.getIndexLocation());
+    assertEquals(indexPath, lucene2SeqConf.getIndexPath());
     assertEquals(seqFilesOutputPath, lucene2SeqConf.getSequenceFilesOutputPath());
     assertEquals(idField, lucene2SeqConf.getIdField());
     assertEquals(field, lucene2SeqConf.getField());
@@ -153,14 +152,14 @@ public class LuceneIndexToSequenceFilesDriverTest {
   @Test(expected = IllegalArgumentException.class)
   public void testRun_invalidQuery() throws Exception {
     String[] args = new String[]{
-      "-d", indexLocation.getAbsolutePath(),
+      "-d", indexPath.toString(),
       "-o", seqFilesOutputPath.toString(),
       "-i", idField,
       "-f", field,
       "-q", "inva:lid:query"
     };
 
-    stubLucene2SeqConfiguration(conf, indexLocation.getAbsolutePath(), seqFilesOutputPath, idField, field);
+    stubLucene2SeqConfiguration(conf, indexPath.toString(), seqFilesOutputPath, idField, field);
 
     driver.setConf(conf);
     driver.run(args);
@@ -174,14 +173,14 @@ public class LuceneIndexToSequenceFilesDriverTest {
 
   //============================================ Helper Methods ========================================================
 
-  private void stubLucene2SeqConfiguration(Configuration conf, String indexLocation, Path seqOutputPath, String idField, String field) throws NoSuchMethodException {
+  private void stubLucene2SeqConfiguration(Configuration conf, String indexPathLocation, Path seqOutputPath, String idField, String field) throws NoSuchMethodException {
     Method method = LuceneIndexToSequenceFilesDriver.class.getMethod("newLucene2SeqConfiguration", Configuration.class, String.class, Path.class, String.class, String.class);
 
     driver = EasyMock.createMock(LuceneIndexToSequenceFilesDriver.class, method);
 
-    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(conf, new File(indexLocation), seqOutputPath, idField, field);
+    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(conf, new Path(indexPathLocation), seqOutputPath, idField, field);
 
-    expect(driver.newLucene2SeqConfiguration(eq(conf), eq(indexLocation), eq(seqOutputPath), eq(idField), eq(field))).andReturn(lucene2SeqConf);
+    expect(driver.newLucene2SeqConfiguration(eq(conf), eq(indexPathLocation), eq(seqOutputPath), eq(idField), eq(field))).andReturn(lucene2SeqConf);
     replay(driver);
   }
 
@@ -204,7 +203,7 @@ public class LuceneIndexToSequenceFilesDriverTest {
   }
 
   private void indexDocuments(SimpleDocument... documents) throws IOException {
-    IndexWriter indexWriter = new IndexWriter(FSDirectory.open(indexLocation), new IndexWriterConfig(Version.LUCENE_31, new DefaultAnalyzer()));
+    IndexWriter indexWriter = new IndexWriter(FSDirectory.open(new File(indexPath.toString())), new IndexWriterConfig(Version.LUCENE_31, new DefaultAnalyzer()));
 
     for (SimpleDocument simpleDocument : documents) {
       Document document = new Document();
