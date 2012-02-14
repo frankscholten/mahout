@@ -55,6 +55,9 @@ public class LuceneIndexToSequenceFilesDriverTest {
   @Before
   public void before() throws Exception {
     conf = new Configuration();
+    conf.set("io.serializations", "org.apache.hadoop.io.serializer.JavaSerialization,"
+      + "org.apache.hadoop.io.serializer.WritableSerialization");
+
     indexPath = new Path("/tmp", getClass().getSimpleName());
 
     seqFilesOutputPath = new Path("seqfiles");

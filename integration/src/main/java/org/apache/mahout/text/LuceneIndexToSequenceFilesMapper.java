@@ -7,9 +7,6 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Scorer;
-import org.apache.lucene.search.Weight;
 
 import java.io.IOException;
 import java.util.List;
@@ -20,14 +17,13 @@ import static org.apache.commons.lang.StringUtils.isNotBlank;
  * Maps document IDs to key value pairs with ID field as the key and the concatenated field and extra fields
  * as value.
  */
-public class LuceneIndexToSequenceFilesMapper extends Mapper<NullWritable, NullWritable, Text, Text> {
+public class LuceneIndexToSequenceFilesMapper extends Mapper<Text, NullWritable, Text, Text> {
 
   public static final String SEPARATOR_EXTRA_FIELDS = " ";
 
   private LuceneIndexToSequenceFilesConfiguration lucene2SeqConfiguration;
   private IndexReader indexReader;
-  private IndexSearcher indexSearcher;
-  private Scorer scorer;
+
   private Text idKey;
   private Text fieldValue;
 
@@ -39,25 +35,14 @@ public class LuceneIndexToSequenceFilesMapper extends Mapper<NullWritable, NullW
 
     FileSystemDirectory directory = new FileSystemDirectory(FileSystem.get(configuration), lucene2SeqConfiguration.getIndexPath(), false, configuration);
     indexReader = IndexReader.open(directory);
-    indexSearcher = new IndexSearcher(indexReader);
 
-    Weight weight = lucene2SeqConfiguration.getQuery().createWeight(indexSearcher);
-    scorer = weight.scorer(indexReader, true, false);
-
-    LuceneInputSplit inputSplit = (LuceneInputSplit) context.getInputSplit();
-    int docsSkipped = 0;
-    while (docsSkipped < inputSplit.getPos()) {
-      scorer.nextDoc();
-      docsSkipped++;
-    }
-    
     idKey = new Text();
     fieldValue = new Text();
   }
 
   @Override
-  protected void map(NullWritable key, NullWritable text, Context context) throws IOException, InterruptedException {
-    int docId = scorer.nextDoc();
+  protected void map(Text key, NullWritable text, Context context) throws IOException, InterruptedException {
+    int docId = Integer.valueOf(key.toString());
     Document document = indexReader.document(docId);
 
     String idString = document.get(lucene2SeqConfiguration.getIdField());
@@ -79,7 +64,6 @@ public class LuceneIndexToSequenceFilesMapper extends Mapper<NullWritable, NullW
 
   @Override
   protected void cleanup(Context context) throws IOException, InterruptedException {
-    indexSearcher.close();
     indexReader.close();
   }
 
