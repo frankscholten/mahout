@@ -2,7 +2,6 @@ package org.apache.mahout.text;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.*;
 import org.apache.lucene.index.IndexReader;
@@ -19,6 +18,7 @@ import java.util.List;
  */
 public class LuceneIndexInputFormat extends InputFormat<NullWritable, NullWritable> {
 
+  @SuppressWarnings("unchecked")
   @Override
   public List<InputSplit> getSplits(JobContext jobContext) throws IOException, InterruptedException {
     Configuration configuration = jobContext.getConfiguration();

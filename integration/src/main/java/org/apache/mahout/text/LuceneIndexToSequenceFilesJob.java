@@ -36,7 +36,7 @@ public class LuceneIndexToSequenceFilesJob {
 
       job.setMapperClass(LuceneIndexToSequenceFilesMapper.class);
 
-      job.setInputFormatClass(LuceneIndexInputFormat.class);
+      job.setInputFormatClass(LuceneSegmentInputFormat.class);
 
       FileInputFormat.addInputPath(job, lucene2seqConf.getIndexPath());
       FileOutputFormat.setOutputPath(job, lucene2seqConf.getSequenceFilesOutputPath());
