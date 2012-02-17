@@ -5,10 +5,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentInfos;
+import org.apache.lucene.index.*;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 import org.apache.mahout.common.HadoopUtil;
@@ -30,24 +27,25 @@ public class LuceneSegmentRecordReaderTest {
   private LuceneSegmentRecordReader recordReader;
   private Configuration configuration;
   private String indexPath;
+  private FSDirectory directory;
+  private IndexWriter indexWriter;
 
   @Before
   public void before() throws IOException, InterruptedException {
     indexPath = "index";
-
     LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), new Path(indexPath), new Path("output"), "id", "field");
     configuration = lucene2SeqConf.serializeInConfiguration();
-
-    FSDirectory directory = FSDirectory.open(new File(indexPath));
-    IndexWriter indexWriter = new IndexWriter(directory, new IndexWriterConfig(Version.LUCENE_35, new DefaultAnalyzer()));
+    directory = FSDirectory.open(new File(indexPath));
+    IndexWriterConfig conf = new IndexWriterConfig(Version.LUCENE_35, new DefaultAnalyzer());
+    indexWriter = new IndexWriter(directory, conf);
 
     SimpleDocument doc1 = new SimpleDocument("1", "This is simple document 1");
     SimpleDocument doc2 = new SimpleDocument("2", "This is simple document 2");
     SimpleDocument doc3 = new SimpleDocument("3", "This is simple document 3");
-    List<SimpleDocument> documents = asList(doc1, doc2, doc3);
 
-    for (SimpleDocument simpleDocument : documents) {
-      indexWriter.addDocument(simpleDocument.asLuceneDocument());
+    List<SimpleDocument> docs = asList(doc1, doc2, doc3);
+    for (SimpleDocument doc : docs) {
+      indexWriter.addDocument(doc.asLuceneDocument());
     }
 
     indexWriter.commit();

@@ -2,12 +2,10 @@ package org.apache.mahout.text;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapreduce.JobContext;
-import org.apache.hadoop.mapreduce.JobID;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentInfos;
+import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 import org.apache.mahout.common.HadoopUtil;
@@ -24,44 +22,59 @@ import java.util.List;
 import static java.util.Arrays.asList;
 import static junit.framework.Assert.assertEquals;
 
-public class LuceneSegmentInputFormatTest {
+public class LuceneSegmentInputSplitTest {
 
-  private LuceneSegmentInputFormat inputFormat;
-  private JobContext jobContext;
-  private Path indexPath;
-  private Configuration conf;
   private FSDirectory directory;
+  private Path indexPath;
 
   @Before
   public void before() throws IOException {
-    inputFormat = new LuceneSegmentInputFormat();
     indexPath = new Path("index");
-
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), indexPath, new Path("output"), "id", "field");
-    conf = lucene2SeqConf.serializeInConfiguration();
-
-    jobContext = new JobContext(conf, new JobID());
     directory = FSDirectory.open(new File(indexPath.toString()));
   }
-  
+
   @After
   public void after() throws IOException {
-    HadoopUtil.delete(conf, indexPath);
+    HadoopUtil.delete(new Configuration(), indexPath);
   }
 
   @Test
-  public void testGetSplits() throws IOException, InterruptedException {
+  public void testGetSegment() throws Exception {
     SimpleDocument doc1 = new SimpleDocument("1", "This is simple document 1");
     SimpleDocument doc2 = new SimpleDocument("2", "This is simple document 2");
     SimpleDocument doc3 = new SimpleDocument("3", "This is simple document 3");
-    List<SimpleDocument> documents = asList(doc1, doc2, doc3);
 
-    for (SimpleDocument simpleDocument : documents) {
-      addDocument(simpleDocument);
+    List<SimpleDocument> docs = asList(doc1, doc2, doc3);
+    for (SimpleDocument doc : docs) {
+      addDocument(doc);
     }
 
-    List<LuceneSegmentInputSplit> splits = inputFormat.getSplits(jobContext);
-    assertEquals(3, splits.size());
+    assertSegmentContainsOneDoc("_0");
+    assertSegmentContainsOneDoc("_1");
+    assertSegmentContainsOneDoc("_2");
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetSegment_nonExistingSegment() throws Exception {
+    SimpleDocument doc1 = new SimpleDocument("1", "This is simple document 1");
+    SimpleDocument doc2 = new SimpleDocument("2", "This is simple document 2");
+    SimpleDocument doc3 = new SimpleDocument("3", "This is simple document 3");
+
+    List<SimpleDocument> docs = asList(doc1, doc2, doc3);
+    for (SimpleDocument doc : docs) {
+      addDocument(doc);
+    }
+
+    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit("_3", 1000);
+    inputSplit.getSegment(directory);
+  }
+
+  private void assertSegmentContainsOneDoc(String segmentName) throws IOException {
+    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(segmentName, 1000);
+    SegmentInfo segment = inputSplit.getSegment(directory);
+    SegmentReader segmentReader = SegmentReader.get(true, segment, 1);
+    assertEquals(segmentName, segment.name);
+    assertEquals(1, segmentReader.numDocs());
   }
 
   private void addDocument(SimpleDocument doc) throws IOException {
