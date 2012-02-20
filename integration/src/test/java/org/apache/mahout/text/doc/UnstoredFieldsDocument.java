@@ -6,7 +6,7 @@ import org.apache.lucene.document.Field;
 /**
  * Used for testing lucene2seq
  */
-public class UnstoredFieldsDocument extends SimpleDocument {
+public class UnstoredFieldsDocument extends SingleFieldDocument {
 
   public static final String UNSTORED_FIELD = "unstored";
 

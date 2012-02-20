@@ -49,8 +49,6 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
 
   private static final Query DEFAULT_QUERY = new MatchAllDocsQuery();
   private static final int DEFAULT_MAX_HITS = Integer.MAX_VALUE;
-  @SuppressWarnings("unchecked")
-  private static final List<String> DEFAULT_EMPTY_FIELDS = Collections.EMPTY_LIST;
 
   private static final String SERIALIZATION_KEY = "org.apache.mahout.text.LuceneIndexToSequenceFiles";
   public static final String SEPARATOR_EXTRA_FIELDS = ",";
@@ -59,8 +57,7 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
   private Path indexLocation;
   private Path sequenceFilesOutputPath;
   private String idField;
-  private String field;
-  private List<String> extraFields;
+  private List<String> fields;
   private Query query;
   private int maxHits;
 
@@ -71,22 +68,22 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
    * @param index                   path to the index
    * @param sequenceFilesOutputPath path to output the sequence file
    * @param idField                 field used for the key of the sequence file
-   * @param field                   field used for the value of the sequence file
+   * @param fields                  field(s) used for the value of the sequence file
    */
-  public LuceneIndexToSequenceFilesConfiguration(Configuration configuration, Path index, Path sequenceFilesOutputPath, String idField, String field) {
+  public LuceneIndexToSequenceFilesConfiguration(Configuration configuration, Path index, Path sequenceFilesOutputPath, String idField, List<String> fields) {
     Preconditions.checkArgument(configuration != null, "Parameter 'configuration' cannot be null");
     Preconditions.checkArgument(index != null, "Parameter 'index' cannot be null");
     Preconditions.checkArgument(sequenceFilesOutputPath != null, "Parameter 'sequenceFilesOutputPath' cannot be null");
     Preconditions.checkArgument(idField != null, "Parameter 'idField' cannot be null");
-    Preconditions.checkArgument(field != null, "Parameter 'field' cannot be null");
+    Preconditions.checkArgument(fields != null, "Parameter 'fields' cannot be null");
+    Preconditions.checkArgument(fields != null && !fields.isEmpty(), "Parameter 'fields' cannot be empty");
 
     this.configuration = configuration;
     this.indexLocation = index;
     this.sequenceFilesOutputPath = sequenceFilesOutputPath;
     this.idField = idField;
-    this.field = field;
+    this.fields = fields;
 
-    setExtraFields(DEFAULT_EMPTY_FIELDS);
     setQuery(DEFAULT_QUERY);
     setMaxHits(DEFAULT_MAX_HITS);
   }
@@ -125,8 +122,8 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
     return idField;
   }
 
-  public String getField() {
-    return field;
+  public List<String> getFields() {
+    return fields;
   }
 
   public void setQuery(Query query) {
@@ -145,19 +142,9 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
     return maxHits;
   }
 
-  public List<String> getExtraFields() {
-    return extraFields;
-  }
-
-  public void setExtraFields(List<String> extraFields) {
-    this.extraFields = extraFields;
-  }
-
   public FieldSelector getFieldSelector() {
-    Set<String> fieldSet = Sets.newHashSet(idField, field);
-    if (extraFields != null) {
-      fieldSet.addAll(extraFields);
-    }
+    Set<String> fieldSet = Sets.newHashSet(idField);
+    fieldSet.addAll(fields);
     return new SetBasedFieldSelector(fieldSet, Collections.<String>emptySet());
   }
 
@@ -166,10 +153,9 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
     out.writeUTF(sequenceFilesOutputPath.toString());
     out.writeUTF(indexLocation.toString());
     out.writeUTF(idField);
-    out.writeUTF(field);
+    out.writeUTF(StringUtils.join(fields, SEPARATOR_EXTRA_FIELDS));
     out.writeUTF(query.toString());
     out.writeInt(maxHits);
-    out.writeUTF(StringUtils.join(extraFields, SEPARATOR_EXTRA_FIELDS));
   }
 
   @Override
@@ -178,10 +164,9 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
       this.sequenceFilesOutputPath = new Path(in.readUTF());
       this.indexLocation = new Path(in.readUTF());
       this.idField = in.readUTF();
-      this.field = in.readUTF();
+      this.fields = Arrays.asList(in.readUTF().split(SEPARATOR_EXTRA_FIELDS));
       this.query = new QueryParser(Version.LUCENE_35, "query", new StandardAnalyzer(Version.LUCENE_35)).parse(in.readUTF());
       this.maxHits = in.readInt();
-      this.extraFields = Arrays.asList(in.readUTF().split(SEPARATOR_EXTRA_FIELDS));
     } catch (ParseException e) {
       throw new RuntimeException("Could not deserialize " + this.getClass().getName(), e);
     }

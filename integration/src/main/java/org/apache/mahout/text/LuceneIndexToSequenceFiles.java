@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 import static org.apache.commons.lang.StringUtils.isBlank;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
@@ -45,7 +46,7 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  */
 public class LuceneIndexToSequenceFiles {
 
-  public static final String FIELD_SEPARATOR = " ";
+  public static final String SEPARATOR_FIELDS = " ";
 
   private static final Logger log = LoggerFactory.getLogger(LuceneIndexToSequenceFiles.class);
 
@@ -77,31 +78,26 @@ public class LuceneIndexToSequenceFiles {
         Document doc = reader.document(docId, lucene2seqConf.getFieldSelector());
 
         String idValue = doc.get(lucene2seqConf.getIdField());
-        String field = lucene2seqConf.getField();
-        String fieldValue = doc.get(field);
 
-        if (fieldValue == null) {
-          continue;
-        }
-
-        StringBuilder fieldValueBuilder = new StringBuilder(fieldValue);
-        if (lucene2seqConf.getExtraFields() != null && !lucene2seqConf.getExtraFields().isEmpty()) {
-          for (String extraField : lucene2seqConf.getExtraFields()) {
-            String extraFieldValue = doc.get(extraField);
-            if (isNotBlank(extraFieldValue)) {
-              fieldValueBuilder.append(FIELD_SEPARATOR).append(extraFieldValue);
+        StringBuilder fieldValueBuilder = new StringBuilder();
+        List<String> fields = lucene2seqConf.getFields();
+        for (int i = 0; i < fields.size(); i++) {
+          String field = fields.get(i);
+          String fieldValue = doc.get(field);
+          if (isNotBlank(fieldValue)) {
+            fieldValueBuilder.append(fieldValue);
+            if (i != fields.size() - 1) {
+              fieldValueBuilder.append(SEPARATOR_FIELDS);
             }
           }
         }
 
-        String concatenatedFieldValue = fieldValueBuilder.toString();
-
-        if (isBlank(idValue) || isBlank(concatenatedFieldValue)) {
+        if (isBlank(idValue) || isBlank(fieldValueBuilder.toString())) {
           continue;
         }
 
         key.set(idValue);
-        value.set(concatenatedFieldValue);
+        value.set(fieldValueBuilder.toString());
 
         sequenceFileWriter.append(key, value);
 

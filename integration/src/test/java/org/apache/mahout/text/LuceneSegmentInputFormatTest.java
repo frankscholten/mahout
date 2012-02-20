@@ -6,12 +6,10 @@ import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.JobID;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 import org.apache.mahout.common.HadoopUtil;
-import org.apache.mahout.text.doc.SimpleDocument;
+import org.apache.mahout.text.doc.SingleFieldDocument;
 import org.apache.mahout.vectorizer.DefaultAnalyzer;
 import org.junit.After;
 import org.junit.Before;
@@ -37,7 +35,7 @@ public class LuceneSegmentInputFormatTest {
     inputFormat = new LuceneSegmentInputFormat();
     indexPath = new Path("index");
 
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), indexPath, new Path("output"), "id", "field");
+    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), indexPath, new Path("output"), "id", asList("field"));
     conf = lucene2SeqConf.serializeInConfiguration();
 
     jobContext = new JobContext(conf, new JobID());
@@ -51,20 +49,20 @@ public class LuceneSegmentInputFormatTest {
 
   @Test
   public void testGetSplits() throws IOException, InterruptedException {
-    SimpleDocument doc1 = new SimpleDocument("1", "This is simple document 1");
-    SimpleDocument doc2 = new SimpleDocument("2", "This is simple document 2");
-    SimpleDocument doc3 = new SimpleDocument("3", "This is simple document 3");
-    List<SimpleDocument> documents = asList(doc1, doc2, doc3);
+    SingleFieldDocument doc1 = new SingleFieldDocument("1", "This is simple document 1");
+    SingleFieldDocument doc2 = new SingleFieldDocument("2", "This is simple document 2");
+    SingleFieldDocument doc3 = new SingleFieldDocument("3", "This is simple document 3");
+    List<SingleFieldDocument> documents = asList(doc1, doc2, doc3);
 
-    for (SimpleDocument simpleDocument : documents) {
-      addDocument(simpleDocument);
+    for (SingleFieldDocument singleFieldDocument : documents) {
+      addDocument(singleFieldDocument);
     }
 
     List<LuceneSegmentInputSplit> splits = inputFormat.getSplits(jobContext);
     assertEquals(3, splits.size());
   }
 
-  private void addDocument(SimpleDocument doc) throws IOException {
+  private void addDocument(SingleFieldDocument doc) throws IOException {
     IndexWriterConfig conf = new IndexWriterConfig(Version.LUCENE_35, new DefaultAnalyzer());
     IndexWriter indexWriter = new IndexWriter(directory, conf);
     indexWriter.addDocument(doc.asLuceneDocument());

@@ -17,28 +17,26 @@
 
 package org.apache.mahout.text;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 import org.apache.mahout.common.HadoopUtil;
+import org.apache.mahout.text.doc.SingleFieldDocument;
 import org.apache.mahout.vectorizer.DefaultAnalyzer;
-import org.easymock.EasyMock;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Method;
+import java.util.List;
 
 import static java.util.Arrays.asList;
-import static org.easymock.EasyMock.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -48,7 +46,7 @@ public class LuceneIndexToSequenceFilesDriverTest {
   private LuceneIndexToSequenceFilesConfiguration lucene2SeqConf;
   private Path indexPath;
   private String idField;
-  private String field;
+  private List<String> fields;
   private Path seqFilesOutputPath;
   private Configuration conf;
 
@@ -62,10 +60,18 @@ public class LuceneIndexToSequenceFilesDriverTest {
 
     seqFilesOutputPath = new Path("seqfiles");
     idField = "id";
-    field = "field";
+    fields = asList("field");
 
-    indexDocuments(new SimpleDocument("1", "Mahout is cool"));
-    indexDocuments(new SimpleDocument("2", "Mahout is cool"));
+    driver = new LuceneIndexToSequenceFilesDriver() {
+      @Override
+      public LuceneIndexToSequenceFilesConfiguration newLucene2SeqConfiguration(Configuration configuration, String indexPath, Path seqPath, String idField, List<String> fields) {
+        lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration, new Path(indexPath), seqPath, idField, fields);
+        return lucene2SeqConf;
+      }
+    };
+
+    indexDocuments(new SingleFieldDocument("1", "Mahout is cool"));
+    indexDocuments(new SingleFieldDocument("2", "Mahout is cool"));
   }
 
   @After
@@ -76,19 +82,17 @@ public class LuceneIndexToSequenceFilesDriverTest {
 
   @Test
   public void testNewLucene2SeqConfiguration() {
-    driver = new LuceneIndexToSequenceFilesDriver();
-
     lucene2SeqConf = driver.newLucene2SeqConfiguration(conf,
       indexPath.toString(),
       seqFilesOutputPath,
       idField,
-      field);
+      fields);
 
     assertEquals(conf, lucene2SeqConf.getConfiguration());
     assertEquals(indexPath, lucene2SeqConf.getIndexPath());
     assertEquals(seqFilesOutputPath, lucene2SeqConf.getSequenceFilesOutputPath());
     assertEquals(idField, lucene2SeqConf.getIdField());
-    assertEquals(field, lucene2SeqConf.getField());
+    assertEquals(fields, lucene2SeqConf.getFields());
   }
 
   @Test
@@ -96,21 +100,18 @@ public class LuceneIndexToSequenceFilesDriverTest {
     String queryField = "queryfield";
     String queryTerm = "queryterm";
     String maxHits = "500";
-    String extraField1 = "extraField1";
-    String extraField2 = "extraField2";
+    String field1 = "field1";
+    String field2 = "field2";
 
     String[] args = new String[]{
       "-d", indexPath.toString(),
       "-o", seqFilesOutputPath.toString(),
       "-i", idField,
-      "-f", field,
+      "-f", field1 + "," + field2,
       "-q", queryField + ":" + queryTerm,
       "-n", maxHits,
-      "-e", extraField1 + "," + extraField2,
-      "-x", "sequential"
+      "-xm", "sequential"
     };
-
-    stubLucene2SeqConfiguration(conf, indexPath.toString(), seqFilesOutputPath, idField, field);
 
     driver.setConf(conf);
     driver.run(args);
@@ -118,9 +119,8 @@ public class LuceneIndexToSequenceFilesDriverTest {
     assertEquals(indexPath, lucene2SeqConf.getIndexPath());
     assertEquals(seqFilesOutputPath, lucene2SeqConf.getSequenceFilesOutputPath());
     assertEquals(idField, lucene2SeqConf.getIdField());
-    assertEquals(field, lucene2SeqConf.getField());
+    assertEquals(asList(field1, field2), lucene2SeqConf.getFields());
 
-    assertTrue(lucene2SeqConf.getExtraFields().containsAll(asList(extraField1, extraField2)));
     assertTrue(lucene2SeqConf.getQuery() instanceof TermQuery);
     assertEquals(queryField, ((TermQuery) lucene2SeqConf.getQuery()).getTerm().field());
     assertEquals(queryTerm, ((TermQuery) lucene2SeqConf.getQuery()).getTerm().text());
@@ -133,10 +133,8 @@ public class LuceneIndexToSequenceFilesDriverTest {
       "-d", indexPath.toString(),
       "-o", seqFilesOutputPath.toString(),
       "-i", idField,
-      "-f", field
+      "-f", StringUtils.join(fields, LuceneIndexToSequenceFilesDriver.SEPARATOR_FIELDS)
     };
-
-    stubLucene2SeqConfiguration(conf, indexPath.toString(), seqFilesOutputPath, idField, field);
 
     driver.setConf(conf);
     driver.run(args);
@@ -144,10 +142,9 @@ public class LuceneIndexToSequenceFilesDriverTest {
     assertEquals(indexPath, lucene2SeqConf.getIndexPath());
     assertEquals(seqFilesOutputPath, lucene2SeqConf.getSequenceFilesOutputPath());
     assertEquals(idField, lucene2SeqConf.getIdField());
-    assertEquals(field, lucene2SeqConf.getField());
+    assertEquals(fields, lucene2SeqConf.getFields());
     assertEquals(conf, lucene2SeqConf.getConfiguration());
 
-    assertTrue(lucene2SeqConf.getExtraFields().isEmpty());
     assertEquals(LuceneIndexToSequenceFilesDriver.DEFAULT_QUERY, lucene2SeqConf.getQuery());
     assertEquals(LuceneIndexToSequenceFilesDriver.DEFAULT_MAX_HITS, lucene2SeqConf.getMaxHits());
   }
@@ -158,11 +155,9 @@ public class LuceneIndexToSequenceFilesDriverTest {
       "-d", indexPath.toString(),
       "-o", seqFilesOutputPath.toString(),
       "-i", idField,
-      "-f", field,
+      "-f", StringUtils.join(fields, LuceneIndexToSequenceFilesDriver.SEPARATOR_FIELDS),
       "-q", "inva:lid:query"
     };
-
-    stubLucene2SeqConfiguration(conf, indexPath.toString(), seqFilesOutputPath, idField, field);
 
     driver.setConf(conf);
     driver.run(args);
@@ -176,46 +171,13 @@ public class LuceneIndexToSequenceFilesDriverTest {
 
   //============================================ Helper Methods ========================================================
 
-  private void stubLucene2SeqConfiguration(Configuration conf, String indexPathLocation, Path seqOutputPath, String idField, String field) throws NoSuchMethodException {
-    Method method = LuceneIndexToSequenceFilesDriver.class.getMethod("newLucene2SeqConfiguration", Configuration.class, String.class, Path.class, String.class, String.class);
-
-    driver = EasyMock.createMock(LuceneIndexToSequenceFilesDriver.class, method);
-
-    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(conf, new Path(indexPathLocation), seqOutputPath, idField, field);
-
-    expect(driver.newLucene2SeqConfiguration(eq(conf), eq(indexPathLocation), eq(seqOutputPath), eq(idField), eq(field))).andReturn(lucene2SeqConf);
-    replay(driver);
-  }
-
-  private static class SimpleDocument {
-    private String id;
-    private String field;
-
-    SimpleDocument(String id, String field) {
-      this.id = id;
-      this.field = field;
-    }
-
-    public String getId() {
-      return id;
-    }
-
-    public String getField() {
-      return field;
-    }
-  }
-
-  private void indexDocuments(SimpleDocument... documents) throws IOException {
+  private void indexDocuments(SingleFieldDocument... documents) throws IOException {
     IndexWriter indexWriter = new IndexWriter(FSDirectory.open(new File(indexPath.toString())), new IndexWriterConfig(Version.LUCENE_31, new DefaultAnalyzer()));
 
-    for (SimpleDocument simpleDocument : documents) {
-      Document document = new Document();
-      Field idField = new Field(this.idField, simpleDocument.getId(), Field.Store.YES, Field.Index.NO);
-      Field field = new Field(this.field, simpleDocument.getField(), Field.Store.YES, Field.Index.ANALYZED);
-      document.add(idField);
-      document.add(field);
-      indexWriter.addDocument(document);
+    for (SingleFieldDocument singleFieldDocument : documents) {
+      indexWriter.addDocument(singleFieldDocument.asLuceneDocument());
     }
+
     indexWriter.commit();
     indexWriter.close();
   }
