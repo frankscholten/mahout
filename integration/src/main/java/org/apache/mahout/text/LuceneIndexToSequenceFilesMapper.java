@@ -1,5 +1,6 @@
 package org.apache.mahout.text;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.NullWritable;
@@ -10,6 +11,7 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.commons.lang.StringUtils.isNotBlank;
@@ -20,7 +22,7 @@ import static org.apache.commons.lang.StringUtils.isNotBlank;
  */
 public class LuceneIndexToSequenceFilesMapper extends Mapper<Text, NullWritable, Text, Text> {
 
-  public static final String SEPARATOR_EXTRA_FIELDS = " ";
+  public static final String SEPARATOR_FIELDS = " ";
   public static final int USE_TERM_INFOS = 1;
 
   private LuceneIndexToSequenceFilesConfiguration lucene2SeqConfiguration;
@@ -51,13 +53,17 @@ public class LuceneIndexToSequenceFilesMapper extends Mapper<Text, NullWritable,
     Document document = segmentReader.document(docId);
 
     String idString = document.get(lucene2SeqConfiguration.getIdField());
-    String field = document.get(lucene2SeqConfiguration.getField());
 
-    StringBuilder valueBuilder = new StringBuilder(nullSafe(field));
-    List<String> extraFields = lucene2SeqConfiguration.getExtraFields();
-    for (String extraField : extraFields) {
-      if (isNotBlank(document.get(extraField))) {
-        valueBuilder.append(SEPARATOR_EXTRA_FIELDS).append(document.get(extraField));
+    StringBuilder valueBuilder = new StringBuilder();
+    List<String> fields = lucene2SeqConfiguration.getFields();
+    for (int i = 0; i < fields.size(); i++) {
+      String field = fields.get(i);
+      String fieldValue = document.get(field);
+      if (isNotBlank(fieldValue)) {
+        valueBuilder.append(fieldValue);
+        if (i != fields.size() - 1) {
+          valueBuilder.append(SEPARATOR_FIELDS);
+        }
       }
     }
 

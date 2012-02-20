@@ -36,6 +36,8 @@ import org.apache.lucene.store.Lock;
 /**
  * This class implements a Lucene Directory on top of a general FileSystem.
  * Currently it does not support locking.
+ *
+ * // TODO: Rename to FileSystemReadOnlyDirectory
  */
 public class FileSystemDirectory extends Directory {
 
@@ -171,6 +173,7 @@ public class FileSystemDirectory extends Directory {
     * @see org.apache.lucene.store.Directory#createOutput(java.lang.String)
     */
     public IndexOutput createOutput(String name) throws IOException {
+      // TODO: Unsupported?
         Path file = new Path(directory, name);
         if (fs.exists(file) && !fs.delete(file, true)) {
             // delete the existing one if applicable
@@ -258,7 +261,6 @@ public class FileSystemDirectory extends Directory {
 
         protected void readInternal(byte[] b, int offset, int len)
                 throws IOException {
-            synchronized (descriptor) {
                 long position = getFilePointer();
                 if (position != descriptor.position) {
                     descriptor.in.seek(position);
@@ -273,7 +275,6 @@ public class FileSystemDirectory extends Directory {
                     descriptor.position += i;
                     total += i;
                 } while (total < len);
-            }
         }
 
         public void close() throws IOException {

@@ -9,7 +9,7 @@ import org.apache.lucene.index.*;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 import org.apache.mahout.common.HadoopUtil;
-import org.apache.mahout.text.doc.SimpleDocument;
+import org.apache.mahout.text.doc.SingleFieldDocument;
 import org.apache.mahout.vectorizer.DefaultAnalyzer;
 import org.junit.After;
 import org.junit.Before;
@@ -33,18 +33,18 @@ public class LuceneSegmentRecordReaderTest {
   @Before
   public void before() throws IOException, InterruptedException {
     indexPath = "index";
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), new Path(indexPath), new Path("output"), "id", "field");
+    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), new Path(indexPath), new Path("output"), "id", asList("field"));
     configuration = lucene2SeqConf.serializeInConfiguration();
     directory = FSDirectory.open(new File(indexPath));
     IndexWriterConfig conf = new IndexWriterConfig(Version.LUCENE_35, new DefaultAnalyzer());
     indexWriter = new IndexWriter(directory, conf);
 
-    SimpleDocument doc1 = new SimpleDocument("1", "This is simple document 1");
-    SimpleDocument doc2 = new SimpleDocument("2", "This is simple document 2");
-    SimpleDocument doc3 = new SimpleDocument("3", "This is simple document 3");
+    SingleFieldDocument doc1 = new SingleFieldDocument("1", "This is simple document 1");
+    SingleFieldDocument doc2 = new SingleFieldDocument("2", "This is simple document 2");
+    SingleFieldDocument doc3 = new SingleFieldDocument("3", "This is simple document 3");
 
-    List<SimpleDocument> docs = asList(doc1, doc2, doc3);
-    for (SimpleDocument doc : docs) {
+    List<SingleFieldDocument> docs = asList(doc1, doc2, doc3);
+    for (SingleFieldDocument doc : docs) {
       indexWriter.addDocument(doc.asLuceneDocument());
     }
 

@@ -13,8 +13,8 @@ import org.apache.lucene.util.Version;
 import org.apache.mahout.common.HadoopUtil;
 import org.apache.mahout.common.Pair;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileIterable;
-import org.apache.mahout.text.doc.ExtraFieldsDocument;
-import org.apache.mahout.text.doc.SimpleDocument;
+import org.apache.mahout.text.doc.MultipleFieldsDocument;
+import org.apache.mahout.text.doc.SingleFieldDocument;
 import org.apache.mahout.text.doc.UnstoredFieldsDocument;
 import org.apache.mahout.vectorizer.DefaultAnalyzer;
 import org.junit.After;
@@ -36,27 +36,29 @@ public class LuceneIndexToSequenceFilesTest {
 
   private Path index;
 
-  private SimpleDocument document1;
-  private SimpleDocument document2;
-  private SimpleDocument document3;
+  private SingleFieldDocument document1;
+  private SingleFieldDocument document2;
+  private SingleFieldDocument document3;
+  private Path seqFilesOutputPath;
+  private Configuration configuration;
 
   @SuppressWarnings("unchecked")
   @Before
   public void before() throws IOException {
-    Configuration configuration = new Configuration();
+    configuration = new Configuration();
     index = new Path("/tmp/" + getClass().getSimpleName());
-    Path seqFilesOutputPath = new Path("seqfiles");
+    seqFilesOutputPath = new Path("seqfiles");
 
     lucene2Seq = new LuceneIndexToSequenceFiles();
     lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration,
       index,
       seqFilesOutputPath,
-      SimpleDocument.ID_FIELD,
-      SimpleDocument.FIELD);
+      SingleFieldDocument.ID_FIELD,
+      asList(SingleFieldDocument.FIELD));
 
-    document1 = new SimpleDocument("1", "This is test document 1");
-    document2 = new SimpleDocument("2", "This is test document 2");
-    document3 = new SimpleDocument("3", "This is test document 3");
+    document1 = new SingleFieldDocument("1", "This is test document 1");
+    document2 = new SingleFieldDocument("2", "This is test document 2");
+    document3 = new SingleFieldDocument("3", "This is test document 3");
   }
 
   @After
@@ -82,7 +84,7 @@ public class LuceneIndexToSequenceFilesTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testRun_skipEmptyIdFieldDocs() throws IOException {
-    indexDocuments(document1, new SimpleDocument("", "This is a test document with no id"), document2);
+    indexDocuments(document1, new SingleFieldDocument("", "This is a test document with no id"), document2);
 
     lucene2Seq.run(lucene2SeqConf);
 
@@ -96,7 +98,7 @@ public class LuceneIndexToSequenceFilesTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testRun_skipEmptyFieldDocs() throws IOException {
-    indexDocuments(document1, new SimpleDocument("4", ""), document2);
+    indexDocuments(document1, new SingleFieldDocument("4", ""), document2);
 
     lucene2Seq.run(lucene2SeqConf);
 
@@ -112,7 +114,11 @@ public class LuceneIndexToSequenceFilesTest {
   public void testRun_skipUnstoredFields() throws IOException {
     indexDocuments(new UnstoredFieldsDocument("5", "This is test document 5"));
 
-    lucene2SeqConf.setExtraFields(asList(UnstoredFieldsDocument.UNSTORED_FIELD));
+    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration,
+      index,
+      seqFilesOutputPath,
+      SingleFieldDocument.ID_FIELD,
+      asList(UnstoredFieldsDocument.FIELD, UnstoredFieldsDocument.UNSTORED_FIELD));
 
     lucene2Seq.run(lucene2SeqConf);
 
@@ -125,7 +131,7 @@ public class LuceneIndexToSequenceFilesTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testRun_maxHits() throws IOException {
-    indexDocuments(document1, document2, document3, new SimpleDocument("4", "This is test document 4"));
+    indexDocuments(document1, document2, document3, new SingleFieldDocument("4", "This is test document 4"));
 
     lucene2SeqConf.setMaxHits(3);
     lucene2Seq.run(lucene2SeqConf);
@@ -141,40 +147,45 @@ public class LuceneIndexToSequenceFilesTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testRun_query() throws IOException {
-    indexDocuments(document1, document2, document3, new SimpleDocument("4", "Mahout is cool"));
+    indexDocuments(document1, document2, document3, new SingleFieldDocument("4", "Mahout is cool"));
 
-    Query query = new TermQuery(new Term(lucene2SeqConf.getField(), "mahout"));
+    Query query = new TermQuery(new Term(lucene2SeqConf.getFields().get(0), "mahout"));
 
     lucene2SeqConf.setQuery(query);
     lucene2Seq.run(lucene2SeqConf);
 
     Iterator<Pair<Text, Text>> iterator = getSequenceFileIterator(lucene2SeqConf);
 
-    assertSimpleDocumentEquals(new SimpleDocument("4", "Mahout is cool"), iterator.next());
+    assertSimpleDocumentEquals(new SingleFieldDocument("4", "Mahout is cool"), iterator.next());
     assertFalse(iterator.hasNext());
   }
 
   @Test
   public void testRun_extraFields() throws IOException {
-    ExtraFieldsDocument extraFieldsDocument1 = new ExtraFieldsDocument("1", "This is test document 1", "This is extrafield1 1", "This is extrafield2 1");
-    ExtraFieldsDocument extraFieldsDocument2 = new ExtraFieldsDocument("2", "This is test document 2", "This is extrafield1 2", "This is extrafield2 1");
-    ExtraFieldsDocument extraFieldsDocument3 = new ExtraFieldsDocument("3", "This is test document 3", "This is extrafield1 3", "This is extrafield3 1");
-    indexDocuments(extraFieldsDocument1, extraFieldsDocument2, extraFieldsDocument3);
+    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration,
+      index,
+      seqFilesOutputPath,
+      SingleFieldDocument.ID_FIELD,
+      asList(MultipleFieldsDocument.FIELD, MultipleFieldsDocument.FIELD1, MultipleFieldsDocument.FIELD2));
 
-    lucene2SeqConf.setExtraFields(asList(ExtraFieldsDocument.EXTRA_FIELD1, ExtraFieldsDocument.EXTRA_FIELD2));
+    MultipleFieldsDocument multipleFieldsDocument1 = new MultipleFieldsDocument("1", "This is field 1-1", "This is field 1-2", "This is field 1-3");
+    MultipleFieldsDocument multipleFieldsDocument2 = new MultipleFieldsDocument("2", "This is field 2-1", "This is field 2-2", "This is field 2-3");
+    MultipleFieldsDocument multipleFieldsDocument3 = new MultipleFieldsDocument("3", "This is field 3-1", "This is field 3-2", "This is field 3-3");
+    indexDocuments(multipleFieldsDocument1, multipleFieldsDocument2, multipleFieldsDocument3);
+
     lucene2Seq.run(lucene2SeqConf);
 
     Iterator<Pair<Text, Text>> iterator = getSequenceFileIterator(lucene2SeqConf);
 
-    assertExtraFieldsDocumentEquals(extraFieldsDocument1, iterator.next());
-    assertExtraFieldsDocumentEquals(extraFieldsDocument2, iterator.next());
-    assertExtraFieldsDocumentEquals(extraFieldsDocument3, iterator.next());
+    assertExtraFieldsDocumentEquals(multipleFieldsDocument1, iterator.next());
+    assertExtraFieldsDocumentEquals(multipleFieldsDocument2, iterator.next());
+    assertExtraFieldsDocumentEquals(multipleFieldsDocument3, iterator.next());
   }
 
-  private void indexDocuments(SimpleDocument... documents) throws IOException {
+  private void indexDocuments(SingleFieldDocument... documents) throws IOException {
     IndexWriter indexWriter = new IndexWriter(FSDirectory.open(new File(index.toString())), new IndexWriterConfig(Version.LUCENE_31, new DefaultAnalyzer()));
 
-    for (SimpleDocument simpleDocument : documents) {
+    for (SingleFieldDocument simpleDocument : documents) {
       indexWriter.addDocument(simpleDocument.asLuceneDocument());
     }
 
@@ -188,14 +199,14 @@ public class LuceneIndexToSequenceFilesTest {
     return new SequenceFileIterable<Text, Text>(sequenceFilesOutputPath, true, configuration).iterator();
   }
 
-  private void assertSimpleDocumentEquals(SimpleDocument expected, Pair<Text, Text> actual) {
+  private void assertSimpleDocumentEquals(SingleFieldDocument expected, Pair<Text, Text> actual) {
     assertEquals(expected.getId(), actual.getFirst().toString());
     assertEquals(expected.getField(), actual.getSecond().toString());
   }
 
-  private void assertExtraFieldsDocumentEquals(ExtraFieldsDocument expected, Pair<Text, Text> actual) {
+  private void assertExtraFieldsDocumentEquals(MultipleFieldsDocument expected, Pair<Text, Text> actual) {
     assertEquals(expected.getId(), actual.getFirst().toString());
-    assertEquals(expected.getField() + " " + expected.getExtraField1() + " " + expected.getExtraField2(), actual.getSecond().toString());
+    assertEquals(expected.getField() + " " + expected.getField1() + " " + expected.getField2(), actual.getSecond().toString());
   }
 
 }

@@ -2,7 +2,6 @@ package org.apache.mahout.text;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.io.Text;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -12,8 +11,7 @@ import org.apache.mahout.common.HadoopUtil;
 import org.apache.mahout.common.Pair;
 import org.apache.mahout.common.iterator.sequencefile.PathType;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileDirIterable;
-import org.apache.mahout.common.iterator.sequencefile.SequenceFileIterable;
-import org.apache.mahout.text.doc.SimpleDocument;
+import org.apache.mahout.text.doc.SingleFieldDocument;
 import org.apache.mahout.vectorizer.DefaultAnalyzer;
 import org.junit.After;
 import org.junit.Before;
@@ -23,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 
+import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
@@ -30,10 +29,10 @@ public class LuceneIndexToSequenceFilesJobTest {
 
   private LuceneIndexToSequenceFilesJob lucene2seq;
   private LuceneIndexToSequenceFilesConfiguration lucene2SeqConf;
-  private SimpleDocument document1;
-  private SimpleDocument document2;
-  private SimpleDocument document3;
-  private SimpleDocument document4;
+  private SingleFieldDocument document1;
+  private SingleFieldDocument document2;
+  private SingleFieldDocument document3;
+  private SingleFieldDocument document4;
   private Path index;
 
   @Before
@@ -44,12 +43,12 @@ public class LuceneIndexToSequenceFilesJobTest {
     index = new Path("index");
     Path seqOutputPath = new Path("seqOutputPath");
 
-    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration, index, seqOutputPath, SimpleDocument.ID_FIELD, SimpleDocument.FIELD);
+    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration, index, seqOutputPath, SingleFieldDocument.ID_FIELD, asList(SingleFieldDocument.FIELD));
 
-    document1 = new SimpleDocument("1", "This is test document 1");
-    document2 = new SimpleDocument("2", "This is test document 2");
-    document3 = new SimpleDocument("3", "This is test document 3");
-    document4 = new SimpleDocument("4", "This is test document 4");
+    document1 = new SingleFieldDocument("1", "This is test document 1");
+    document2 = new SingleFieldDocument("2", "This is test document 2");
+    document3 = new SingleFieldDocument("3", "This is test document 3");
+    document4 = new SingleFieldDocument("4", "This is test document 4");
   }
 
   @After
@@ -79,16 +78,16 @@ public class LuceneIndexToSequenceFilesJobTest {
     return new SequenceFileDirIterable<Text, Text>(sequenceFilesOutputPath, PathType.LIST, configuration).iterator();
   }
 
-  private void assertSimpleDocumentEquals(SimpleDocument expected, Pair<Text, Text> actual) {
+  private void assertSimpleDocumentEquals(SingleFieldDocument expected, Pair<Text, Text> actual) {
     assertEquals(expected.getId(), actual.getFirst().toString());
     assertEquals(expected.getField(), actual.getSecond().toString());
   }
 
-  private void indexDocuments(SimpleDocument... documents) throws IOException {
+  private void indexDocuments(SingleFieldDocument... documents) throws IOException {
     IndexWriter indexWriter = new IndexWriter(FSDirectory.open(new File(index.toString())), new IndexWriterConfig(Version.LUCENE_31, new DefaultAnalyzer()));
 
-    for (SimpleDocument simpleDocument : documents) {
-      indexWriter.addDocument(simpleDocument.asLuceneDocument());
+    for (SingleFieldDocument singleFieldDocument : documents) {
+      indexWriter.addDocument(singleFieldDocument.asLuceneDocument());
     }
 
     indexWriter.commit();

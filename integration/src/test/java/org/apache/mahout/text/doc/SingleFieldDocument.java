@@ -6,7 +6,7 @@ import org.apache.lucene.document.Field;
 /**
  * Used for testing lucene2seq
  */
-public class SimpleDocument {
+public class SingleFieldDocument {
 
   public static final String ID_FIELD = "idField";
   public static final String FIELD = "field";
@@ -14,7 +14,7 @@ public class SimpleDocument {
   private String id;
   private String field;
 
-  public SimpleDocument(String id, String field) {
+  public SingleFieldDocument(String id, String field) {
     this.id = id;
     this.field = field;
   }
