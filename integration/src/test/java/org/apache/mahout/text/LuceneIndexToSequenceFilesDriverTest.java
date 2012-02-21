@@ -56,7 +56,7 @@ public class LuceneIndexToSequenceFilesDriverTest {
     conf.set("io.serializations", "org.apache.hadoop.io.serializer.JavaSerialization,"
       + "org.apache.hadoop.io.serializer.WritableSerialization");
 
-    indexPath = new Path("/tmp", getClass().getSimpleName());
+    indexPath = new Path("index");
 
     seqFilesOutputPath = new Path("seqfiles");
     idField = "id";

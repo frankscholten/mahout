@@ -14,6 +14,7 @@ import org.apache.mahout.common.HadoopUtil;
 import org.apache.mahout.common.Pair;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileIterable;
 import org.apache.mahout.text.doc.MultipleFieldsDocument;
+import org.apache.mahout.text.doc.NumericFieldDocument;
 import org.apache.mahout.text.doc.SingleFieldDocument;
 import org.apache.mahout.text.doc.UnstoredFieldsDocument;
 import org.apache.mahout.vectorizer.DefaultAnalyzer;
@@ -46,7 +47,7 @@ public class LuceneIndexToSequenceFilesTest {
   @Before
   public void before() throws IOException {
     configuration = new Configuration();
-    index = new Path("/tmp/" + getClass().getSimpleName());
+    index = new Path("index");
     seqFilesOutputPath = new Path("seqfiles");
 
     lucene2Seq = new LuceneIndexToSequenceFiles();
@@ -177,9 +178,32 @@ public class LuceneIndexToSequenceFilesTest {
 
     Iterator<Pair<Text, Text>> iterator = getSequenceFileIterator(lucene2SeqConf);
 
-    assertExtraFieldsDocumentEquals(multipleFieldsDocument1, iterator.next());
-    assertExtraFieldsDocumentEquals(multipleFieldsDocument2, iterator.next());
-    assertExtraFieldsDocumentEquals(multipleFieldsDocument3, iterator.next());
+    assertMultipleFieldsDocumentEquals(multipleFieldsDocument1, iterator.next());
+    assertMultipleFieldsDocumentEquals(multipleFieldsDocument2, iterator.next());
+    assertMultipleFieldsDocumentEquals(multipleFieldsDocument3, iterator.next());
+  }
+
+  @Test
+  public void testRun_numericField() throws IOException {
+    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration,
+      asList(index),
+      seqFilesOutputPath,
+      SingleFieldDocument.ID_FIELD,
+      asList(NumericFieldDocument.FIELD, NumericFieldDocument.NUMERIC_FIELD));
+
+    NumericFieldDocument doc1 = new NumericFieldDocument("1", "This is field 1", 100);
+    NumericFieldDocument doc2 = new NumericFieldDocument("2", "This is field 2", 200);
+    NumericFieldDocument doc3 = new NumericFieldDocument("3", "This is field 3", 300);
+
+    indexDocuments(doc1, doc2, doc3);
+
+    lucene2Seq.run(lucene2SeqConf);
+
+    Iterator<Pair<Text, Text>> iterator = getSequenceFileIterator(lucene2SeqConf);
+
+    assertNumericFieldEquals(doc1, iterator.next());
+    assertNumericFieldEquals(doc2, iterator.next());
+    assertNumericFieldEquals(doc3, iterator.next());
   }
 
   private void indexDocuments(SingleFieldDocument... documents) throws IOException {
@@ -196,7 +220,7 @@ public class LuceneIndexToSequenceFilesTest {
   private Iterator<Pair<Text, Text>> getSequenceFileIterator(LuceneIndexToSequenceFilesConfiguration lucene2SeqConf) {
     Path sequenceFilesOutputPath = lucene2SeqConf.getSequenceFilesOutputPath();
     Configuration configuration = lucene2SeqConf.getConfiguration();
-    return new SequenceFileIterable<Text, Text>(sequenceFilesOutputPath, true, configuration).iterator();
+    return new SequenceFileIterable<Text, Text>(new Path(sequenceFilesOutputPath, index), true, configuration).iterator();
   }
 
   private void assertSimpleDocumentEquals(SingleFieldDocument expected, Pair<Text, Text> actual) {
@@ -204,9 +228,14 @@ public class LuceneIndexToSequenceFilesTest {
     assertEquals(expected.getField(), actual.getSecond().toString());
   }
 
-  private void assertExtraFieldsDocumentEquals(MultipleFieldsDocument expected, Pair<Text, Text> actual) {
+  private void assertMultipleFieldsDocumentEquals(MultipleFieldsDocument expected, Pair<Text, Text> actual) {
     assertEquals(expected.getId(), actual.getFirst().toString());
     assertEquals(expected.getField() + " " + expected.getField1() + " " + expected.getField2(), actual.getSecond().toString());
+  }
+
+  private void assertNumericFieldEquals(NumericFieldDocument expected, Pair<Text, Text> actual) {
+    assertEquals(expected.getId(), actual.getFirst().toString());
+    assertEquals(expected.getField() + " " + expected.getNumericField(), actual.getSecond().toString());
   }
 
 }
