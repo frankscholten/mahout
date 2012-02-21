@@ -7,12 +7,9 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.TermQuery;
 
 import java.io.IOException;
-
-import static java.util.Arrays.asList;
+import java.util.Map;
 
 /**
  * Generates a sequence file from a Lucene index via MapReduce. Uses a specified id field as the key and a content field as the value.
@@ -24,7 +21,7 @@ public class LuceneIndexToSequenceFilesJob {
     try {
       Configuration configuration = lucene2seqConf.serializeInConfiguration();
 
-      Job job = new Job(configuration, "LuceneIndexToSequenceFiles: " + lucene2seqConf.getIndexPath() + " -> M/R -> " + lucene2seqConf.getSequenceFilesOutputPath());
+      Job job = new Job(configuration, "LuceneIndexToSequenceFiles: " + lucene2seqConf.getIndexPaths() + " -> M/R -> " + lucene2seqConf.getSequenceFilesOutputPath());
 
       job.setMapOutputKeyClass(Text.class);
       job.setMapOutputValueClass(Text.class);
@@ -38,7 +35,10 @@ public class LuceneIndexToSequenceFilesJob {
 
       job.setInputFormatClass(LuceneSegmentInputFormat.class);
 
-      FileInputFormat.addInputPath(job, lucene2seqConf.getIndexPath());
+      for (Path indexPath : lucene2seqConf.getIndexPaths()) {
+        FileInputFormat.addInputPath(job, indexPath);
+      }
+
       FileOutputFormat.setOutputPath(job, lucene2seqConf.getSequenceFilesOutputPath());
 
       job.setJarByClass(LuceneIndexToSequenceFilesJob.class);

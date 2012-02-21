@@ -2,6 +2,7 @@ package org.apache.mahout.text;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.*;
@@ -27,15 +28,19 @@ public class LuceneSegmentInputFormat extends InputFormat {
 
     LuceneIndexToSequenceFilesConfiguration lucene2SeqConfiguration = new LuceneIndexToSequenceFilesConfiguration().getFromConfiguration(configuration);
 
-    FileSystemDirectory directory = new FileSystemDirectory(FileSystem.get(configuration), lucene2SeqConfiguration.getIndexPath(), false, configuration);
-    SegmentInfos segmentInfos = new SegmentInfos();
-    segmentInfos.read(directory);
-
     List<LuceneSegmentInputSplit> inputSplits = new ArrayList<LuceneSegmentInputSplit>();
-    for (SegmentInfo segmentInfo : segmentInfos.asList()) {
-      LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(segmentInfo.name, segmentInfo.sizeInBytes(true));
-      inputSplits.add(inputSplit);
-      LOG.info("Created {} byte input split for segment {}", segmentInfo.sizeInBytes(true), segmentInfo.name);
+
+    List<Path> indexPaths = lucene2SeqConfiguration.getIndexPaths();
+    for (Path indexPath : indexPaths) {
+      FileSystemDirectory directory = new FileSystemDirectory(FileSystem.get(configuration), indexPath, false, configuration);
+      SegmentInfos segmentInfos = new SegmentInfos();
+      segmentInfos.read(directory);
+
+      for (SegmentInfo segmentInfo : segmentInfos.asList()) {
+        LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(indexPath, segmentInfo.name, segmentInfo.sizeInBytes(true));
+        inputSplits.add(inputSplit);
+        LOG.info("Created {} byte input split for index '{}' segment {}", new Object[] {segmentInfo.sizeInBytes(true), indexPath.toUri(), segmentInfo.name});
+      }
     }
 
     return inputSplits;

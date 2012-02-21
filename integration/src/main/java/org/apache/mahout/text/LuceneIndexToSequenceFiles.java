@@ -20,6 +20,7 @@ package org.apache.mahout.text;
 import com.google.common.io.Closeables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.lucene.document.Document;
@@ -57,65 +58,70 @@ public class LuceneIndexToSequenceFiles {
    * @throws java.io.IOException if index cannot be opened or sequence file could not be written
    */
   public void run(LuceneIndexToSequenceFilesConfiguration lucene2seqConf) throws IOException {
-    Directory directory = FSDirectory.open(new File(lucene2seqConf.getIndexPath().toString()));
-    IndexReader reader = IndexReader.open(directory, true);
-    IndexSearcher searcher = new IndexSearcher(reader);
-    Configuration configuration = lucene2seqConf.getConfiguration();
-    FileSystem fileSystem = FileSystem.get(configuration);
-    SequenceFile.Writer sequenceFileWriter = new SequenceFile.Writer(fileSystem, configuration, lucene2seqConf.getSequenceFilesOutputPath(), Text.class, Text.class);
+    List<Path> indexPaths = lucene2seqConf.getIndexPaths();
 
-    Text key = new Text();
-    Text value = new Text();
+    for (Path indexPath : indexPaths) {
+      Directory directory = FSDirectory.open(new File(indexPath.toString()));
+      IndexReader reader = IndexReader.open(directory, true);
+      IndexSearcher searcher = new IndexSearcher(reader);
+      Configuration configuration = lucene2seqConf.getConfiguration();
+      FileSystem fileSystem = FileSystem.get(configuration);
+      Path sequenceFilePath = new Path(lucene2seqConf.getSequenceFilesOutputPath(), indexPath);
+      SequenceFile.Writer sequenceFileWriter = new SequenceFile.Writer(fileSystem, configuration, sequenceFilePath, Text.class, Text.class);
 
-    Weight weight = lucene2seqConf.getQuery().createWeight(searcher);
-    Scorer scorer = weight.scorer(reader, true, false);
+      Text key = new Text();
+      Text value = new Text();
 
-    if (scorer != null) {
-      int processedDocs = 0;
-      int docId;
+      Weight weight = lucene2seqConf.getQuery().createWeight(searcher);
+      Scorer scorer = weight.scorer(reader, true, false);
 
-      while ((docId = scorer.nextDoc()) != NO_MORE_DOCS && processedDocs < lucene2seqConf.getMaxHits()) {
-        Document doc = reader.document(docId, lucene2seqConf.getFieldSelector());
+      if (scorer != null) {
+        int processedDocs = 0;
+        int docId;
 
-        String idValue = doc.get(lucene2seqConf.getIdField());
+        while ((docId = scorer.nextDoc()) != NO_MORE_DOCS && processedDocs < lucene2seqConf.getMaxHits()) {
+          Document doc = reader.document(docId, lucene2seqConf.getFieldSelector());
 
-        StringBuilder fieldValueBuilder = new StringBuilder();
-        List<String> fields = lucene2seqConf.getFields();
-        for (int i = 0; i < fields.size(); i++) {
-          String field = fields.get(i);
-          String fieldValue = doc.get(field);
-          if (isNotBlank(fieldValue)) {
-            fieldValueBuilder.append(fieldValue);
-            if (i != fields.size() - 1) {
-              fieldValueBuilder.append(SEPARATOR_FIELDS);
+          String idValue = doc.get(lucene2seqConf.getIdField());
+
+          StringBuilder fieldValueBuilder = new StringBuilder();
+          List<String> fields = lucene2seqConf.getFields();
+          for (int i = 0; i < fields.size(); i++) {
+            String field = fields.get(i);
+            String fieldValue = doc.get(field);
+            if (isNotBlank(fieldValue)) {
+              fieldValueBuilder.append(fieldValue);
+              if (i != fields.size() - 1) {
+                fieldValueBuilder.append(SEPARATOR_FIELDS);
+              }
             }
           }
+
+          if (isBlank(idValue) || isBlank(fieldValueBuilder.toString())) {
+            continue;
+          }
+
+          key.set(idValue);
+          value.set(fieldValueBuilder.toString());
+
+          sequenceFileWriter.append(key, value);
+
+          processedDocs++;
         }
 
-        if (isBlank(idValue) || isBlank(fieldValueBuilder.toString())) {
-          continue;
-        }
-
-        key.set(idValue);
-        value.set(fieldValueBuilder.toString());
-
-        sequenceFileWriter.append(key, value);
-
-        processedDocs++;
+        log.info("Wrote " + processedDocs + " documents in " + sequenceFilePath.toUri());
+      } else {
+        Closeables.closeQuietly(sequenceFileWriter);
+        directory.close();
+        searcher.close();
+        reader.close();
+        throw new RuntimeException("Could not write sequence files. Could not create scorer");
       }
 
-      log.info("Wrote " + processedDocs + " documents");
-    } else {
       Closeables.closeQuietly(sequenceFileWriter);
       directory.close();
       searcher.close();
       reader.close();
-      throw new RuntimeException("Could not write sequence files. Could not create scorer");
     }
-
-    Closeables.closeQuietly(sequenceFileWriter);
-    directory.close();
-    searcher.close();
-    reader.close();
   }
 }

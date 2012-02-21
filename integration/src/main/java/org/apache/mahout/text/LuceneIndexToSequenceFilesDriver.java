@@ -32,6 +32,7 @@ import org.apache.mahout.common.commandline.DefaultOptionCreator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static java.util.Arrays.asList;
@@ -39,7 +40,7 @@ import static java.util.Arrays.asList;
 /**
  * Driver class for the lucene2seq program. Converts text contents of stored fields of a lucene index into a Hadoop
  * SequenceFile. The key of the sequence file is the document ID and the value is the concatenated text of the specified
- * field and any extra fields.
+ * stored field(s).
  */
 public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
 
@@ -54,8 +55,6 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
 
   static final String SEPARATOR_FIELDS = ",";
   static final String QUERY_DELIMITER = "'";
-
-  private static final Logger log = LoggerFactory.getLogger(LuceneIndexToSequenceFilesDriver.class);
 
   public static void main(String[] args) throws Exception {
     ToolRunner.run(new LuceneIndexToSequenceFilesDriver(), args);
@@ -82,18 +81,23 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
       configuration = new Configuration();
     }
 
-    String indexLocation = getOption(OPTION_LUCENE_DIRECTORY);
+    String[] paths = getOption(OPTION_LUCENE_DIRECTORY).split(",");
+    List<Path> indexPaths = new ArrayList<Path>();
+    for (String path : paths) {
+      indexPaths.add(new Path(path));
+    }
+
     Path sequenceFilesOutputPath = new Path((getOption(DefaultOptionCreator.OUTPUT_OPTION)));
 
     String idField = getOption(OPTION_ID_FIELD);
     String fields = getOption(OPTION_FIELD);
-    
+
     LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = newLucene2SeqConfiguration(configuration,
-      indexLocation,
+      indexPaths,
       sequenceFilesOutputPath,
       idField,
       asList(fields.split(SEPARATOR_FIELDS)));
-    
+
     Query query = DEFAULT_QUERY;
     if (hasOption(OPTION_QUERY)) {
       try {
@@ -122,13 +126,13 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
   }
 
   public LuceneIndexToSequenceFilesConfiguration newLucene2SeqConfiguration(Configuration configuration,
-                                                                            String indexLocation,
+                                                                            List<Path> indexPaths,
                                                                             Path sequenceFilesOutputPath,
                                                                             String idField,
                                                                             List<String> fields) {
     return new LuceneIndexToSequenceFilesConfiguration(
       configuration,
-      new Path(indexLocation),
+      indexPaths,
       sequenceFilesOutputPath,
       idField,
       fields);

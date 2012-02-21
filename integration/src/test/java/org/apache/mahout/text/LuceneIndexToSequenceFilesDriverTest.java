@@ -64,8 +64,8 @@ public class LuceneIndexToSequenceFilesDriverTest {
 
     driver = new LuceneIndexToSequenceFilesDriver() {
       @Override
-      public LuceneIndexToSequenceFilesConfiguration newLucene2SeqConfiguration(Configuration configuration, String indexPath, Path seqPath, String idField, List<String> fields) {
-        lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration, new Path(indexPath), seqPath, idField, fields);
+      public LuceneIndexToSequenceFilesConfiguration newLucene2SeqConfiguration(Configuration configuration, List<Path> indexPaths, Path seqPath, String idField, List<String> fields) {
+        lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration, indexPaths, seqPath, idField, fields);
         return lucene2SeqConf;
       }
     };
@@ -83,13 +83,13 @@ public class LuceneIndexToSequenceFilesDriverTest {
   @Test
   public void testNewLucene2SeqConfiguration() {
     lucene2SeqConf = driver.newLucene2SeqConfiguration(conf,
-      indexPath.toString(),
+      asList(new Path(indexPath.toString())),
       seqFilesOutputPath,
       idField,
       fields);
 
     assertEquals(conf, lucene2SeqConf.getConfiguration());
-    assertEquals(indexPath, lucene2SeqConf.getIndexPath());
+    assertEquals(asList(indexPath), lucene2SeqConf.getIndexPaths());
     assertEquals(seqFilesOutputPath, lucene2SeqConf.getSequenceFilesOutputPath());
     assertEquals(idField, lucene2SeqConf.getIdField());
     assertEquals(fields, lucene2SeqConf.getFields());
@@ -116,7 +116,7 @@ public class LuceneIndexToSequenceFilesDriverTest {
     driver.setConf(conf);
     driver.run(args);
 
-    assertEquals(indexPath, lucene2SeqConf.getIndexPath());
+    assertEquals(asList(indexPath), lucene2SeqConf.getIndexPaths());
     assertEquals(seqFilesOutputPath, lucene2SeqConf.getSequenceFilesOutputPath());
     assertEquals(idField, lucene2SeqConf.getIdField());
     assertEquals(asList(field1, field2), lucene2SeqConf.getFields());
@@ -139,7 +139,7 @@ public class LuceneIndexToSequenceFilesDriverTest {
     driver.setConf(conf);
     driver.run(args);
 
-    assertEquals(indexPath, lucene2SeqConf.getIndexPath());
+    assertEquals(asList(indexPath), lucene2SeqConf.getIndexPaths());
     assertEquals(seqFilesOutputPath, lucene2SeqConf.getSequenceFilesOutputPath());
     assertEquals(idField, lucene2SeqConf.getIdField());
     assertEquals(fields, lucene2SeqConf.getFields());

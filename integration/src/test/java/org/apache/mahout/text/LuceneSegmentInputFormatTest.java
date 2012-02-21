@@ -35,7 +35,7 @@ public class LuceneSegmentInputFormatTest {
     inputFormat = new LuceneSegmentInputFormat();
     indexPath = new Path("index");
 
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), indexPath, new Path("output"), "id", asList("field"));
+    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), asList(indexPath), new Path("output"), "id", asList("field"));
     conf = lucene2SeqConf.serializeInConfiguration();
 
     jobContext = new JobContext(conf, new JobID());

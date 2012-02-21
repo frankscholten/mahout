@@ -38,9 +38,7 @@ public class LuceneSegmentRecordReader extends RecordReader<Text, NullWritable> 
     Configuration configuration = context.getConfiguration();
     LuceneIndexToSequenceFilesConfiguration lucene2SeqConfiguration = new LuceneIndexToSequenceFilesConfiguration().getFromConfiguration(configuration);
 
-    FileSystemDirectory directory = new FileSystemDirectory(FileSystem.get(configuration), lucene2SeqConfiguration.getIndexPath(), false, configuration);
-
-    SegmentInfo segmentInfo = inputSplit.getSegment(directory);
+    SegmentInfo segmentInfo = inputSplit.getSegment(configuration);
     segmentReader = SegmentReader.get(READ_ONLY, segmentInfo, USE_TERMS_INFOS);
 
     searcher = new IndexSearcher(segmentReader);

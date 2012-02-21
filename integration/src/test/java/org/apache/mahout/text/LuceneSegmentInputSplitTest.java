@@ -26,16 +26,18 @@ public class LuceneSegmentInputSplitTest {
 
   private FSDirectory directory;
   private Path indexPath;
+  private Configuration conf;
 
   @Before
   public void before() throws IOException {
     indexPath = new Path("index");
     directory = FSDirectory.open(new File(indexPath.toString()));
+    conf = new Configuration();
   }
 
   @After
   public void after() throws IOException {
-    HadoopUtil.delete(new Configuration(), indexPath);
+    HadoopUtil.delete(conf, indexPath);
   }
 
   @Test
@@ -65,13 +67,13 @@ public class LuceneSegmentInputSplitTest {
       addDocument(doc);
     }
 
-    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit("_3", 1000);
-    inputSplit.getSegment(directory);
+    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(indexPath, "_3", 1000);
+    inputSplit.getSegment(conf);
   }
 
   private void assertSegmentContainsOneDoc(String segmentName) throws IOException {
-    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(segmentName, 1000);
-    SegmentInfo segment = inputSplit.getSegment(directory);
+    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(indexPath, segmentName, 1000);
+    SegmentInfo segment = inputSplit.getSegment(conf);
     SegmentReader segmentReader = SegmentReader.get(true, segment, 1);
     assertEquals(segmentName, segment.name);
     assertEquals(1, segmentReader.numDocs());
