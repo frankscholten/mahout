@@ -43,7 +43,7 @@ public class LuceneIndexToSequenceFilesJobTest {
     index = new Path("index");
     Path seqOutputPath = new Path("seqOutputPath");
 
-    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration, index, seqOutputPath, SingleFieldDocument.ID_FIELD, asList(SingleFieldDocument.FIELD));
+    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration, asList(index), seqOutputPath, SingleFieldDocument.ID_FIELD, asList(SingleFieldDocument.FIELD));
 
     document1 = new SingleFieldDocument("1", "This is test document 1");
     document2 = new SingleFieldDocument("2", "This is test document 2");
@@ -54,7 +54,7 @@ public class LuceneIndexToSequenceFilesJobTest {
   @After
   public void after() throws IOException {
     HadoopUtil.delete(lucene2SeqConf.getConfiguration(), lucene2SeqConf.getSequenceFilesOutputPath());
-    HadoopUtil.delete(lucene2SeqConf.getConfiguration(), lucene2SeqConf.getIndexPath());
+    HadoopUtil.delete(lucene2SeqConf.getConfiguration(), lucene2SeqConf.getIndexPaths());
   }
 
   @Test

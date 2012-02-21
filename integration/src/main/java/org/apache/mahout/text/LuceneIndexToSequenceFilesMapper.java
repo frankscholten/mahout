@@ -1,6 +1,5 @@
 package org.apache.mahout.text;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.NullWritable;
@@ -11,13 +10,12 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 
 /**
- * Maps document IDs to key value pairs with ID field as the key and the concatenated field and extra fields
+ * Maps document IDs to key value pairs with ID field as the key and the concatenated stored field(s)
  * as value.
  */
 public class LuceneIndexToSequenceFilesMapper extends Mapper<Text, NullWritable, Text, Text> {
@@ -37,10 +35,9 @@ public class LuceneIndexToSequenceFilesMapper extends Mapper<Text, NullWritable,
 
     lucene2SeqConfiguration = new LuceneIndexToSequenceFilesConfiguration().getFromConfiguration(configuration);
 
-    FileSystemDirectory directory = new FileSystemDirectory(FileSystem.get(configuration), lucene2SeqConfiguration.getIndexPath(), false, configuration);
-
     LuceneSegmentInputSplit inputSplit = (LuceneSegmentInputSplit) context.getInputSplit();
-    SegmentInfo segmentInfo = inputSplit.getSegment(directory);
+
+    SegmentInfo segmentInfo = inputSplit.getSegment(configuration);
     segmentReader = SegmentReader.get(true, segmentInfo, USE_TERM_INFOS);
 
     idKey = new Text();

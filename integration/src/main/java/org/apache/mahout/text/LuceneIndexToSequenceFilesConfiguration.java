@@ -36,10 +36,7 @@ import org.apache.lucene.util.Version;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Holds all the configuration for {@link org.apache.mahout.text.LuceneIndexToSequenceFiles}, which generates a sequence file
@@ -51,10 +48,12 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
   private static final int DEFAULT_MAX_HITS = Integer.MAX_VALUE;
 
   private static final String SERIALIZATION_KEY = "org.apache.mahout.text.LuceneIndexToSequenceFiles";
-  public static final String SEPARATOR_EXTRA_FIELDS = ",";
+  
+  static final String SEPARATOR_FIELDS = ",";
+  static final String SEPARATOR_PATHS = ",";
 
   private Configuration configuration;
-  private Path indexLocation;
+  private List<Path> indexPaths;
   private Path sequenceFilesOutputPath;
   private String idField;
   private List<String> fields;
@@ -65,21 +64,22 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
    * Create a configuration bean with all mandatory parameters.
    *
    * @param configuration           Hadoop configuration for writing sequencefiles
-   * @param index                   path to the index
+   * @param indexPaths              paths to the index
    * @param sequenceFilesOutputPath path to output the sequence file
    * @param idField                 field used for the key of the sequence file
    * @param fields                  field(s) used for the value of the sequence file
    */
-  public LuceneIndexToSequenceFilesConfiguration(Configuration configuration, Path index, Path sequenceFilesOutputPath, String idField, List<String> fields) {
+  public LuceneIndexToSequenceFilesConfiguration(Configuration configuration, List<Path> indexPaths, Path sequenceFilesOutputPath, String idField, List<String> fields) {
     Preconditions.checkArgument(configuration != null, "Parameter 'configuration' cannot be null");
-    Preconditions.checkArgument(index != null, "Parameter 'index' cannot be null");
+    Preconditions.checkArgument(indexPaths != null, "Parameter 'indexPaths' cannot be null");
+    Preconditions.checkArgument(indexPaths != null && !indexPaths.isEmpty(), "Parameter 'indexPaths' cannot be empty");
     Preconditions.checkArgument(sequenceFilesOutputPath != null, "Parameter 'sequenceFilesOutputPath' cannot be null");
     Preconditions.checkArgument(idField != null, "Parameter 'idField' cannot be null");
     Preconditions.checkArgument(fields != null, "Parameter 'fields' cannot be null");
     Preconditions.checkArgument(fields != null && !fields.isEmpty(), "Parameter 'fields' cannot be empty");
 
     this.configuration = configuration;
-    this.indexLocation = index;
+    this.indexPaths = indexPaths;
     this.sequenceFilesOutputPath = sequenceFilesOutputPath;
     this.idField = idField;
     this.fields = fields;
@@ -114,8 +114,8 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
     return sequenceFilesOutputPath;
   }
 
-  public Path getIndexPath() {
-    return indexLocation;
+  public List<Path> getIndexPaths() {
+    return indexPaths;
   }
 
   public String getIdField() {
@@ -151,9 +151,9 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
   @Override
   public void write(DataOutput out) throws IOException {
     out.writeUTF(sequenceFilesOutputPath.toString());
-    out.writeUTF(indexLocation.toString());
+    out.writeUTF(StringUtils.join(indexPaths, SEPARATOR_PATHS));
     out.writeUTF(idField);
-    out.writeUTF(StringUtils.join(fields, SEPARATOR_EXTRA_FIELDS));
+    out.writeUTF(StringUtils.join(fields, SEPARATOR_FIELDS));
     out.writeUTF(query.toString());
     out.writeInt(maxHits);
   }
@@ -162,9 +162,13 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
   public void readFields(DataInput in) throws IOException {
     try {
       this.sequenceFilesOutputPath = new Path(in.readUTF());
-      this.indexLocation = new Path(in.readUTF());
+      this.indexPaths = new ArrayList<Path>();
+      String[] indexPaths = in.readUTF().split(SEPARATOR_PATHS);
+      for (String indexPath : indexPaths) {
+        this.indexPaths.add(new Path(indexPath));
+      }
       this.idField = in.readUTF();
-      this.fields = Arrays.asList(in.readUTF().split(SEPARATOR_EXTRA_FIELDS));
+      this.fields = Arrays.asList(in.readUTF().split(SEPARATOR_FIELDS));
       this.query = new QueryParser(Version.LUCENE_35, "query", new StandardAnalyzer(Version.LUCENE_35)).parse(in.readUTF());
       this.maxHits = in.readInt();
     } catch (ParseException e) {

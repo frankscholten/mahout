@@ -1,5 +1,8 @@
 package org.apache.mahout.text;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
@@ -18,6 +21,7 @@ import java.util.List;
  */
 public class LuceneSegmentInputSplit extends InputSplit implements Writable {
 
+  private Path indexPath;
   private String segmentInfoName;
   private long length;
 
@@ -25,7 +29,8 @@ public class LuceneSegmentInputSplit extends InputSplit implements Writable {
     // For deserialization
   }
 
-  public LuceneSegmentInputSplit(String segmentInfoName, long length) {
+  public LuceneSegmentInputSplit(Path indexPath, String segmentInfoName, long length) {
+    this.indexPath = indexPath;
     this.segmentInfoName = segmentInfoName;
     this.length = length;
   }
@@ -44,28 +49,36 @@ public class LuceneSegmentInputSplit extends InputSplit implements Writable {
     return segmentInfoName;
   }
 
+  public Path getIndexPath() {
+    return indexPath;
+  }
+
   @Override
   public void write(DataOutput out) throws IOException {
+    out.writeUTF(indexPath.toString());
     out.writeUTF(segmentInfoName);
     out.writeLong(length);
   }
 
   @Override
   public void readFields(DataInput in) throws IOException {
+    this.indexPath = new Path(in.readUTF());
     this.segmentInfoName = in.readUTF();
     this.length = in.readLong();
   }
 
   /**
-   * Get the {@link SegmentInfo} of this {@link InputSplit} in the given lucene {@link Directory}
-   * 
-   * @param directory that contains the segment
+   * Get the {@link SegmentInfo} of this {@link InputSplit} via the given {@link Configuration}
+   *
+   * @param configuration the configuration used to locate the index
    *
    * @return the segment info or throws exception if not found
    *
    * @throws IOException if an error occurs when accessing the directory
    */
-  public SegmentInfo getSegment(Directory directory) throws IOException {
+  public SegmentInfo getSegment(Configuration configuration) throws IOException {
+    FileSystemDirectory directory = new FileSystemDirectory(FileSystem.get(configuration), indexPath, false, configuration);
+
     SegmentInfos segmentInfos = new SegmentInfos();
     segmentInfos.read(directory);
 

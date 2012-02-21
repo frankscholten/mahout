@@ -51,7 +51,7 @@ public class LuceneIndexToSequenceFilesTest {
 
     lucene2Seq = new LuceneIndexToSequenceFiles();
     lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration,
-      index,
+      asList(index),
       seqFilesOutputPath,
       SingleFieldDocument.ID_FIELD,
       asList(SingleFieldDocument.FIELD));
@@ -64,7 +64,7 @@ public class LuceneIndexToSequenceFilesTest {
   @After
   public void after() throws IOException {
     HadoopUtil.delete(lucene2SeqConf.getConfiguration(), lucene2SeqConf.getSequenceFilesOutputPath());
-    HadoopUtil.delete(lucene2SeqConf.getConfiguration(), lucene2SeqConf.getIndexPath());
+    HadoopUtil.delete(lucene2SeqConf.getConfiguration(), lucene2SeqConf.getIndexPaths());
   }
 
   @SuppressWarnings("unchecked")
@@ -115,7 +115,7 @@ public class LuceneIndexToSequenceFilesTest {
     indexDocuments(new UnstoredFieldsDocument("5", "This is test document 5"));
 
     lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration,
-      index,
+      asList(index),
       seqFilesOutputPath,
       SingleFieldDocument.ID_FIELD,
       asList(UnstoredFieldsDocument.FIELD, UnstoredFieldsDocument.UNSTORED_FIELD));
@@ -161,9 +161,9 @@ public class LuceneIndexToSequenceFilesTest {
   }
 
   @Test
-  public void testRun_extraFields() throws IOException {
+  public void testRun_multipleFields() throws IOException {
     lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration,
-      index,
+      asList(index),
       seqFilesOutputPath,
       SingleFieldDocument.ID_FIELD,
       asList(MultipleFieldsDocument.FIELD, MultipleFieldsDocument.FIELD1, MultipleFieldsDocument.FIELD2));

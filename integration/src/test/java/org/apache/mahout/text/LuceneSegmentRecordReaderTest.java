@@ -33,7 +33,7 @@ public class LuceneSegmentRecordReaderTest {
   @Before
   public void before() throws IOException, InterruptedException {
     indexPath = "index";
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), new Path(indexPath), new Path("output"), "id", asList("field"));
+    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), asList(new Path(indexPath)), new Path("output"), "id", asList("field"));
     configuration = lucene2SeqConf.serializeInConfiguration();
     directory = FSDirectory.open(new File(indexPath));
     IndexWriterConfig conf = new IndexWriterConfig(Version.LUCENE_35, new DefaultAnalyzer());
@@ -55,7 +55,7 @@ public class LuceneSegmentRecordReaderTest {
     segmentInfos.read(directory);
 
     SegmentInfo segmentInfo = segmentInfos.asList().get(0);
-    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(segmentInfo.name, segmentInfo.sizeInBytes(true));
+    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(new Path(indexPath), segmentInfo.name, segmentInfo.sizeInBytes(true));
 
     TaskAttemptContext context = new TaskAttemptContext(configuration, new TaskAttemptID());
 
