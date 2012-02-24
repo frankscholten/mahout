@@ -36,7 +36,7 @@ public class LuceneSegmentRecordReader extends RecordReader<Text, NullWritable> 
     LuceneSegmentInputSplit inputSplit = (LuceneSegmentInputSplit) split;
     
     Configuration configuration = context.getConfiguration();
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConfiguration = new LuceneIndexToSequenceFilesConfiguration().getFromConfiguration(configuration);
+    LuceneStorageConfiguration lucene2SeqConfiguration = new LuceneStorageConfiguration(configuration);
 
     SegmentInfo segmentInfo = inputSplit.getSegment(configuration);
     segmentReader = SegmentReader.get(READ_ONLY, segmentInfo, USE_TERMS_INFOS);

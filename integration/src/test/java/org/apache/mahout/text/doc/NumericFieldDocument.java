@@ -18,6 +18,7 @@ public class NumericFieldDocument extends SingleFieldDocument {
     this.numericField = numericField;
   }
 
+  @Override
   public Document asLuceneDocument() {
     Document document = new Document();
 

@@ -26,7 +26,7 @@ public class LuceneSegmentInputFormat extends InputFormat {
   public List<LuceneSegmentInputSplit> getSplits(JobContext context) throws IOException, InterruptedException {
     Configuration configuration = context.getConfiguration();
 
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConfiguration = new LuceneIndexToSequenceFilesConfiguration().getFromConfiguration(configuration);
+    LuceneStorageConfiguration lucene2SeqConfiguration = new LuceneStorageConfiguration(configuration);
 
     List<LuceneSegmentInputSplit> inputSplits = new ArrayList<LuceneSegmentInputSplit>();
 

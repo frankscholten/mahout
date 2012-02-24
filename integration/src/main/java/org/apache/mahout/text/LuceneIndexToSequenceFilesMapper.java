@@ -23,7 +23,7 @@ public class LuceneIndexToSequenceFilesMapper extends Mapper<Text, NullWritable,
   public static final String SEPARATOR_FIELDS = " ";
   public static final int USE_TERM_INFOS = 1;
 
-  private LuceneIndexToSequenceFilesConfiguration lucene2SeqConfiguration;
+  private LuceneStorageConfiguration lucene2SeqConfiguration;
   private SegmentReader segmentReader;
 
   private Text idKey;
@@ -33,7 +33,7 @@ public class LuceneIndexToSequenceFilesMapper extends Mapper<Text, NullWritable,
   protected void setup(Context context) throws IOException, InterruptedException {
     Configuration configuration = context.getConfiguration();
 
-    lucene2SeqConfiguration = new LuceneIndexToSequenceFilesConfiguration().getFromConfiguration(configuration);
+    lucene2SeqConfiguration = new LuceneStorageConfiguration(configuration);
 
     LuceneSegmentInputSplit inputSplit = (LuceneSegmentInputSplit) context.getInputSplit();
 
