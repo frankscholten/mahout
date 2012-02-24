@@ -9,17 +9,16 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 
 import java.io.IOException;
-import java.util.Map;
 
 /**
  * Generates a sequence file from a Lucene index via MapReduce. Uses a specified id field as the key and a content field as the value.
- * Configure this class with a {@link LuceneIndexToSequenceFilesConfiguration} bean.
+ * Configure this class with a {@link LuceneStorageConfiguration} bean.
  */
 public class LuceneIndexToSequenceFilesJob {
 
-  public void run(LuceneIndexToSequenceFilesConfiguration lucene2seqConf) {
+  public void run(LuceneStorageConfiguration lucene2seqConf) {
     try {
-      Configuration configuration = lucene2seqConf.serializeInConfiguration();
+      Configuration configuration = lucene2seqConf.serialize();
 
       Job job = new Job(configuration, "LuceneIndexToSequenceFiles: " + lucene2seqConf.getIndexPaths() + " -> M/R -> " + lucene2seqConf.getSequenceFilesOutputPath());
 

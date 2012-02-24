@@ -43,7 +43,7 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
 /**
  * Generates a sequence file from a Lucene index with a specified id field as the key and a content field as the value.
- * Configure this class with a {@link LuceneIndexToSequenceFilesConfiguration} bean.
+ * Configure this class with a {@link LuceneStorageConfiguration} bean.
  */
 public class LuceneIndexToSequenceFiles {
 
@@ -52,12 +52,12 @@ public class LuceneIndexToSequenceFiles {
   private static final Logger log = LoggerFactory.getLogger(LuceneIndexToSequenceFiles.class);
 
   /**
-   * Generates a sequence files from a Lucene index via the given {@link LuceneIndexToSequenceFilesConfiguration}
+   * Generates a sequence files from a Lucene index via the given {@link LuceneStorageConfiguration}
    *
    * @param lucene2seqConf configuration bean
    * @throws java.io.IOException if index cannot be opened or sequence file could not be written
    */
-  public void run(LuceneIndexToSequenceFilesConfiguration lucene2seqConf) throws IOException {
+  public void run(LuceneStorageConfiguration lucene2seqConf) throws IOException {
     List<Path> indexPaths = lucene2seqConf.getIndexPaths();
 
     for (Path indexPath : indexPaths) {

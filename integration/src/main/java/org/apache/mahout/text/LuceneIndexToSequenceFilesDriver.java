@@ -64,7 +64,7 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
   public int run(String[] args) throws Exception {
     addOutputOption();
 
-    addOption(OPTION_LUCENE_DIRECTORY, "d", "The Lucene directory", true);
+    addOption(OPTION_LUCENE_DIRECTORY, "d", "Lucene directory / directories. Comma separated.", true);
     addOption(OPTION_ID_FIELD, "i", "The field in the index containing the id", true);
     addOption(OPTION_FIELD, "f", "The stored field(s) in the index containing text", true);
 
@@ -92,7 +92,7 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
     String idField = getOption(OPTION_ID_FIELD);
     String fields = getOption(OPTION_FIELD);
 
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = newLucene2SeqConfiguration(configuration,
+    LuceneStorageConfiguration lucene2SeqConf = newLucene2SeqConfiguration(configuration,
       indexPaths,
       sequenceFilesOutputPath,
       idField,
@@ -125,12 +125,12 @@ public class LuceneIndexToSequenceFilesDriver extends AbstractJob {
     return 0;
   }
 
-  public LuceneIndexToSequenceFilesConfiguration newLucene2SeqConfiguration(Configuration configuration,
+  public LuceneStorageConfiguration newLucene2SeqConfiguration(Configuration configuration,
                                                                             List<Path> indexPaths,
                                                                             Path sequenceFilesOutputPath,
                                                                             String idField,
                                                                             List<String> fields) {
-    return new LuceneIndexToSequenceFilesConfiguration(
+    return new LuceneStorageConfiguration(
       configuration,
       indexPaths,
       sequenceFilesOutputPath,

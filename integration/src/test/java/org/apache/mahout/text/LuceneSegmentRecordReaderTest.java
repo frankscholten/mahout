@@ -22,40 +22,27 @@ import java.util.List;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 
-public class LuceneSegmentRecordReaderTest {
+public class LuceneSegmentRecordReaderTest extends AbstractLuceneStorageTest {
 
   private LuceneSegmentRecordReader recordReader;
   private Configuration configuration;
-  private String indexPath;
-  private FSDirectory directory;
-  private IndexWriter indexWriter;
 
   @Before
   public void before() throws IOException, InterruptedException {
-    indexPath = "index";
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), asList(new Path(indexPath)), new Path("output"), "id", asList("field"));
-    configuration = lucene2SeqConf.serializeInConfiguration();
-    directory = FSDirectory.open(new File(indexPath));
-    IndexWriterConfig conf = new IndexWriterConfig(Version.LUCENE_35, new DefaultAnalyzer());
-    indexWriter = new IndexWriter(directory, conf);
+    LuceneStorageConfiguration lucene2SeqConf = new LuceneStorageConfiguration(new Configuration(), asList(getIndexPath()), new Path("output"), "id", asList("field"));
+    configuration = lucene2SeqConf.serialize();
 
     SingleFieldDocument doc1 = new SingleFieldDocument("1", "This is simple document 1");
     SingleFieldDocument doc2 = new SingleFieldDocument("2", "This is simple document 2");
     SingleFieldDocument doc3 = new SingleFieldDocument("3", "This is simple document 3");
 
-    List<SingleFieldDocument> docs = asList(doc1, doc2, doc3);
-    for (SingleFieldDocument doc : docs) {
-      indexWriter.addDocument(doc.asLuceneDocument());
-    }
-
-    indexWriter.commit();
-    indexWriter.close();
+    commitDocuments(doc1, doc2, doc3);
 
     SegmentInfos segmentInfos = new SegmentInfos();
-    segmentInfos.read(directory);
+    segmentInfos.read(getDirectory());
 
     SegmentInfo segmentInfo = segmentInfos.asList().get(0);
-    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(new Path(indexPath), segmentInfo.name, segmentInfo.sizeInBytes(true));
+    LuceneSegmentInputSplit inputSplit = new LuceneSegmentInputSplit(getIndexPath(), segmentInfo.name, segmentInfo.sizeInBytes(true));
 
     TaskAttemptContext context = new TaskAttemptContext(configuration, new TaskAttemptID());
 
@@ -65,7 +52,7 @@ public class LuceneSegmentRecordReaderTest {
 
   @After
   public void after() throws IOException {
-    HadoopUtil.delete(configuration, new Path(indexPath));
+    HadoopUtil.delete(configuration, getIndexPath());
   }
 
   @Test

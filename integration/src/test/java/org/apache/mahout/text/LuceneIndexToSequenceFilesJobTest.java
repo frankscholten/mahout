@@ -25,25 +25,23 @@ import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-public class LuceneIndexToSequenceFilesJobTest {
+public class LuceneIndexToSequenceFilesJobTest extends AbstractLuceneStorageTest {
 
   private LuceneIndexToSequenceFilesJob lucene2seq;
-  private LuceneIndexToSequenceFilesConfiguration lucene2SeqConf;
+  private LuceneStorageConfiguration lucene2SeqConf;
   private SingleFieldDocument document1;
   private SingleFieldDocument document2;
   private SingleFieldDocument document3;
   private SingleFieldDocument document4;
-  private Path index;
 
   @Before
   public void before() {
     lucene2seq = new LuceneIndexToSequenceFilesJob();
 
     Configuration configuration = new Configuration();
-    index = new Path("index");
     Path seqOutputPath = new Path("seqOutputPath");
 
-    lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(configuration, asList(index), seqOutputPath, SingleFieldDocument.ID_FIELD, asList(SingleFieldDocument.FIELD));
+    lucene2SeqConf = new LuceneStorageConfiguration(configuration, asList(getIndexPath()), seqOutputPath, SingleFieldDocument.ID_FIELD, asList(SingleFieldDocument.FIELD));
 
     document1 = new SingleFieldDocument("1", "This is test document 1");
     document2 = new SingleFieldDocument("2", "This is test document 2");
@@ -59,38 +57,15 @@ public class LuceneIndexToSequenceFilesJobTest {
 
   @Test
   public void testRun() throws IOException {
-    indexDocuments(document1, document2, document3, document4);
+    commitDocuments(document1, document2, document3, document4);
 
     lucene2seq.run(lucene2SeqConf);
 
-
-    Iterator<Pair<Text, Text>> iterator = getSequenceFileIterator();
+    Iterator<Pair<Text, Text>> iterator = lucene2SeqConf.getSequenceFileIterator();
 
     assertSimpleDocumentEquals(document1, iterator.next());
     assertSimpleDocumentEquals(document2, iterator.next());
     assertSimpleDocumentEquals(document3, iterator.next());
     assertSimpleDocumentEquals(document4, iterator.next());
-  }
-
-  private Iterator<Pair<Text, Text>> getSequenceFileIterator() {
-    Path sequenceFilesOutputPath = lucene2SeqConf.getSequenceFilesOutputPath();
-    Configuration configuration = lucene2SeqConf.getConfiguration();
-    return new SequenceFileDirIterable<Text, Text>(sequenceFilesOutputPath, PathType.LIST, configuration).iterator();
-  }
-
-  private void assertSimpleDocumentEquals(SingleFieldDocument expected, Pair<Text, Text> actual) {
-    assertEquals(expected.getId(), actual.getFirst().toString());
-    assertEquals(expected.getField(), actual.getSecond().toString());
-  }
-
-  private void indexDocuments(SingleFieldDocument... documents) throws IOException {
-    IndexWriter indexWriter = new IndexWriter(FSDirectory.open(new File(index.toString())), new IndexWriterConfig(Version.LUCENE_31, new DefaultAnalyzer()));
-
-    for (SingleFieldDocument singleFieldDocument : documents) {
-      indexWriter.addDocument(singleFieldDocument.asLuceneDocument());
-    }
-
-    indexWriter.commit();
-    indexWriter.close();
   }
 }

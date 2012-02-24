@@ -35,8 +35,8 @@ public class LuceneSegmentInputFormatTest {
     inputFormat = new LuceneSegmentInputFormat();
     indexPath = new Path("index");
 
-    LuceneIndexToSequenceFilesConfiguration lucene2SeqConf = new LuceneIndexToSequenceFilesConfiguration(new Configuration(), asList(indexPath), new Path("output"), "id", asList("field"));
-    conf = lucene2SeqConf.serializeInConfiguration();
+    LuceneStorageConfiguration lucene2SeqConf = new LuceneStorageConfiguration(new Configuration(), asList(indexPath), new Path("output"), "id", asList("field"));
+    conf = lucene2SeqConf.serialize();
 
     jobContext = new JobContext(conf, new JobID());
     directory = FSDirectory.open(new File(indexPath.toString()));
@@ -55,14 +55,14 @@ public class LuceneSegmentInputFormatTest {
     List<SingleFieldDocument> documents = asList(doc1, doc2, doc3);
 
     for (SingleFieldDocument singleFieldDocument : documents) {
-      addDocument(singleFieldDocument);
+      commitDocument(singleFieldDocument);
     }
 
     List<LuceneSegmentInputSplit> splits = inputFormat.getSplits(jobContext);
     assertEquals(3, splits.size());
   }
 
-  private void addDocument(SingleFieldDocument doc) throws IOException {
+  private void commitDocument(SingleFieldDocument doc) throws IOException {
     IndexWriterConfig conf = new IndexWriterConfig(Version.LUCENE_35, new DefaultAnalyzer());
     IndexWriter indexWriter = new IndexWriter(directory, conf);
     indexWriter.addDocument(doc.asLuceneDocument());

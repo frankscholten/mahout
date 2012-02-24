@@ -23,6 +23,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DefaultStringifier;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.FieldSelector;
@@ -31,24 +32,28 @@ import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.util.Version;
+import org.apache.mahout.common.Pair;
+import org.apache.mahout.common.iterator.sequencefile.PathType;
+import org.apache.mahout.common.iterator.sequencefile.SequenceFileDirIterable;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.*;
 
+import static org.apache.lucene.util.Version.LUCENE_35;
+
 /**
  * Holds all the configuration for {@link org.apache.mahout.text.LuceneIndexToSequenceFiles}, which generates a sequence file
  * with id as the key and a content field as value.
  */
-public class LuceneIndexToSequenceFilesConfiguration implements Writable {
+public class LuceneStorageConfiguration implements Writable {
 
   private static final Query DEFAULT_QUERY = new MatchAllDocsQuery();
   private static final int DEFAULT_MAX_HITS = Integer.MAX_VALUE;
 
-  private static final String SERIALIZATION_KEY = "org.apache.mahout.text.LuceneIndexToSequenceFiles";
-  
+  static final String KEY = "org.apache.mahout.text.LuceneIndexToSequenceFiles";
+
   static final String SEPARATOR_FIELDS = ",";
   static final String SEPARATOR_PATHS = ",";
 
@@ -69,7 +74,7 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
    * @param idField                 field used for the key of the sequence file
    * @param fields                  field(s) used for the value of the sequence file
    */
-  public LuceneIndexToSequenceFilesConfiguration(Configuration configuration, List<Path> indexPaths, Path sequenceFilesOutputPath, String idField, List<String> fields) {
+  public LuceneStorageConfiguration(Configuration configuration, List<Path> indexPaths, Path sequenceFilesOutputPath, String idField, List<String> fields) {
     Preconditions.checkArgument(configuration != null, "Parameter 'configuration' cannot be null");
     Preconditions.checkArgument(indexPaths != null, "Parameter 'indexPaths' cannot be null");
     Preconditions.checkArgument(indexPaths != null && !indexPaths.isEmpty(), "Parameter 'indexPaths' cannot be empty");
@@ -88,22 +93,55 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
     setMaxHits(DEFAULT_MAX_HITS);
   }
 
-  public LuceneIndexToSequenceFilesConfiguration() {
-    // For deserialization
+  public LuceneStorageConfiguration() {
+    // Used during serialization. Do not use.
   }
 
-  public LuceneIndexToSequenceFilesConfiguration getFromConfiguration(Configuration configuration) throws IOException {
-    String serializedConfigString = configuration.get(LuceneIndexToSequenceFilesConfiguration.SERIALIZATION_KEY);
-    return new DefaultStringifier<LuceneIndexToSequenceFilesConfiguration>(configuration, LuceneIndexToSequenceFilesConfiguration.class).fromString(serializedConfigString);
+  /**
+   * Deserializes a {@link LuceneStorageConfiguration} from a {@link Configuration}.
+   *
+   * @param conf the {@link Configuration} object with a serialized {@link LuceneStorageConfiguration}
+   * @throws IOException if deserialization fails
+   */
+  public LuceneStorageConfiguration(Configuration conf) throws IOException {
+    Preconditions.checkNotNull(conf, "Parameter 'configuration' cannot be null");
+
+    String serializedConfigString = conf.get(KEY);
+
+    if (serializedConfigString == null) {
+      throw new IllegalArgumentException("Parameter 'configuration' does not contain a serialized " + this.getClass());
+    }
+
+    LuceneStorageConfiguration luceneStorageConf = DefaultStringifier.load(conf, KEY, LuceneStorageConfiguration.class);
+
+    this.configuration = conf;
+    this.indexPaths = luceneStorageConf.getIndexPaths();
+    this.sequenceFilesOutputPath = luceneStorageConf.getSequenceFilesOutputPath();
+    this.idField = luceneStorageConf.getIdField();
+    this.fields = luceneStorageConf.getFields();
+    this.query = luceneStorageConf.getQuery();
+    this.maxHits = luceneStorageConf.getMaxHits();
   }
 
-  public Configuration serializeInConfiguration() throws IOException {
-    String serializedConfigString = new DefaultStringifier<LuceneIndexToSequenceFilesConfiguration>(configuration, LuceneIndexToSequenceFilesConfiguration.class).toString(this);
+  /**
+   * Serializes this object in a Hadoop {@link Configuration}
+   *
+   * @return a {@link Configuration} object with a String serialization
+   * @throws IOException if serialization fails
+   */
+  public Configuration serialize() throws IOException {
+    DefaultStringifier.store(configuration, this, KEY);
 
-    Configuration serializedConfig = new Configuration(configuration);
-    serializedConfig.set(SERIALIZATION_KEY, serializedConfigString);
+    return new Configuration(configuration);
+  }
 
-    return serializedConfig;
+  /**
+   * Returns an {@link Iterator} which returns (Text, Text) {@link Pair}s of the produced sequence files.
+   *
+   * @return iterator
+   */
+  public Iterator<Pair<Text, Text>> getSequenceFileIterator() {
+    return new SequenceFileDirIterable<Text, Text>(sequenceFilesOutputPath, PathType.LIST, configuration).iterator();
   }
 
   public Configuration getConfiguration() {
@@ -169,10 +207,39 @@ public class LuceneIndexToSequenceFilesConfiguration implements Writable {
       }
       this.idField = in.readUTF();
       this.fields = Arrays.asList(in.readUTF().split(SEPARATOR_FIELDS));
-      this.query = new QueryParser(Version.LUCENE_35, "query", new StandardAnalyzer(Version.LUCENE_35)).parse(in.readUTF());
+      this.query = new QueryParser(LUCENE_35, "query", new StandardAnalyzer(LUCENE_35)).parse(in.readUTF());
       this.maxHits = in.readInt();
     } catch (ParseException e) {
       throw new RuntimeException("Could not deserialize " + this.getClass().getName(), e);
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    LuceneStorageConfiguration that = (LuceneStorageConfiguration) o;
+
+    if (maxHits != that.maxHits) return false;
+    if (fields != null ? !fields.equals(that.fields) : that.fields != null) return false;
+    if (idField != null ? !idField.equals(that.idField) : that.idField != null) return false;
+    if (indexPaths != null ? !indexPaths.equals(that.indexPaths) : that.indexPaths != null) return false;
+    if (query != null ? !query.equals(that.query) : that.query != null) return false;
+    if (sequenceFilesOutputPath != null ? !sequenceFilesOutputPath.equals(that.sequenceFilesOutputPath) : that.sequenceFilesOutputPath != null)
+      return false;
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = indexPaths != null ? indexPaths.hashCode() : 0;
+    result = 31 * result + (sequenceFilesOutputPath != null ? sequenceFilesOutputPath.hashCode() : 0);
+    result = 31 * result + (idField != null ? idField.hashCode() : 0);
+    result = 31 * result + (fields != null ? fields.hashCode() : 0);
+    result = 31 * result + (query != null ? query.hashCode() : 0);
+    result = 31 * result + maxHits;
+    return result;
   }
 }
