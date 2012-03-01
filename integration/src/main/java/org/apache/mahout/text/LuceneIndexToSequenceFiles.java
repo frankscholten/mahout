@@ -66,7 +66,7 @@ public class LuceneIndexToSequenceFiles {
       IndexSearcher searcher = new IndexSearcher(reader);
       Configuration configuration = lucene2seqConf.getConfiguration();
       FileSystem fileSystem = FileSystem.get(configuration);
-      Path sequenceFilePath = new Path(lucene2seqConf.getSequenceFilesOutputPath(), indexPath);
+      Path sequenceFilePath = new Path(lucene2seqConf.getSequenceFilesOutputPath(), indexPath.getName());
       SequenceFile.Writer sequenceFileWriter = new SequenceFile.Writer(fileSystem, configuration, sequenceFilePath, Text.class, Text.class);
 
       Text key = new Text();
