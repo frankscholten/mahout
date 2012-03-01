@@ -155,6 +155,7 @@
     <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-queries</artifactId>
+      <version>3.5.0</version>
     </dependency>
 
     <dependency>
