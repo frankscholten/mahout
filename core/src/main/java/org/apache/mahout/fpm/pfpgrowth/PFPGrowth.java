@@ -21,15 +21,11 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.regex.Pattern;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileStatus;
@@ -96,15 +92,28 @@ public final class PFPGrowth {
    */
   public static List<Pair<String,Long>> readFList(Configuration conf) throws IOException {
     List<Pair<String,Long>> list = new ArrayList<Pair<String,Long>>();
-    URI[] files = DistributedCache.getCacheFiles(conf);
+    Path[] files = DistributedCache.getLocalCacheFiles(conf);
     if (files == null) {
       throw new IOException("Cannot read Frequency list from Distributed Cache");
     }
     if (files.length != 1) {
       throw new IOException("Cannot read Frequency list from Distributed Cache ("+files.length+")");
     }
+    FileSystem fs = FileSystem.getLocal(conf);
+    Path fListLocalPath = fs.makeQualified(files[0]);
+    // Fallback if we are running locally.
+    if (! fs.exists(fListLocalPath)) {
+      URI[] filesURIs = DistributedCache.getCacheFiles(conf);
+      if (filesURIs == null) {
+        throw new IOException("Cannot read Frequency list from Distributed Cache");
+      }
+      if (filesURIs.length != 1) {
+        throw new IOException("Cannot read Frequency list from Distributed Cache ("+files.length+")");
+      }
+      fListLocalPath = new Path(filesURIs[0].getPath());
+    }
     for (Pair<Text,LongWritable> record :
-         new SequenceFileIterable<Text,LongWritable>(new Path(files[0].getPath()), true, conf)) {
+         new SequenceFileIterable<Text,LongWritable>(fListLocalPath, true, conf)) {
       list.add(new Pair<String,Long>(record.getFirst().toString(), record.getSecond().get()));
     }
     return list;

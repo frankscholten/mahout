@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,18 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.math.hadoop.stochasticsvd;
+package org.apache.mahout.clustering.iterator;
 
 import java.io.IOException;
+import java.util.Iterator;
 
-import org.apache.mahout.math.Vector;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.mapreduce.Reducer;
 
-/**
- * This is part of SSVD prototype code
- *
- */
-public interface PartialRowEmitter {
-
-  void emitRow(int rowNum, Vector row) throws IOException;
-
+public class CIReducer extends Reducer<IntWritable,ClusterWritable,IntWritable,ClusterWritable> {
+  
+  @Override
+  protected void reduce(IntWritable key, Iterable<ClusterWritable> values, Context context) throws IOException,
+      InterruptedException {
+    Iterator<ClusterWritable> iter = values.iterator();
+    ClusterWritable first = null;
+    while (iter.hasNext()) {
+      ClusterWritable cw = iter.next();
+      if (first == null) {
+        first = cw;
+      } else {
+        first.getValue().observe(cw.getValue());
+      }
+    }
+    first.getValue().computeParameters();
+    context.write(key, first);
+  }
+  
 }

@@ -14,31 +14,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.mahout.clustering;
+package org.apache.mahout.clustering.iterator;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.List;
 
+import org.apache.mahout.clustering.Cluster;
+import org.apache.mahout.clustering.classify.ClusterClassifier;
+import org.apache.mahout.math.DenseVector;
+import org.apache.mahout.math.SequentialAccessSparseVector;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.VectorWritable;
+import org.apache.mahout.math.function.TimesFunction;
 
 /**
- * This is a probability-weighted clustering policy, suitable for fuzzy k-means
+ * This is a simple maximum likelihood clustering policy, suitable for k-means
  * clustering
  * 
  */
-public class FuzzyKMeansClusteringPolicy implements ClusteringPolicy {
+public class MeanShiftClusteringPolicy implements ClusteringPolicy {
   
-  public FuzzyKMeansClusteringPolicy() {
+  public MeanShiftClusteringPolicy() {
     super();
   }
   
-  private double m;
+  private double t1, t2, t3, t4;
   
-  private double convergenceDelta;
-  
-  public FuzzyKMeansClusteringPolicy(double m, double convergenceDelta) {
-    this.m = m;
+  /*
+   * (non-Javadoc)
+   * 
+   * @see
+   * org.apache.mahout.clustering.ClusteringPolicy#select(org.apache.mahout.
+   * math.Vector)
+   */
+  @Override
+  public Vector select(Vector probabilities) {
+    int maxValueIndex = probabilities.maxValueIndex();
+    Vector weights = new SequentialAccessSparseVector(probabilities.size());
+    weights.set(maxValueIndex, 1.0);
+    return weights;
   }
   
   /*
@@ -53,16 +69,14 @@ public class FuzzyKMeansClusteringPolicy implements ClusteringPolicy {
     // nothing to do here
   }
   
-  /*
-   * (non-Javadoc)
-   * 
-   * @see
-   * org.apache.mahout.clustering.ClusteringPolicy#select(org.apache.mahout.
-   * math.Vector)
-   */
   @Override
-  public Vector select(Vector probabilities) {
-    return probabilities;
+  public Vector classify(Vector data, List<Cluster> models) {
+    int i = 0;
+    Vector pdfs = new DenseVector(models.size());
+    for (Cluster model : models) {
+      pdfs.set(i++, model.pdf(new VectorWritable(data)));
+    }
+    return pdfs.assign(new TimesFunction(), 1.0 / pdfs.zSum());
   }
   
   /*
@@ -72,8 +86,10 @@ public class FuzzyKMeansClusteringPolicy implements ClusteringPolicy {
    */
   @Override
   public void write(DataOutput out) throws IOException {
-    out.writeDouble(m);
-    out.writeDouble(convergenceDelta);
+    out.writeDouble(t1);
+    out.writeDouble(t2);
+    out.writeDouble(t3);
+    out.writeDouble(t4);
   }
   
   /*
@@ -83,8 +99,10 @@ public class FuzzyKMeansClusteringPolicy implements ClusteringPolicy {
    */
   @Override
   public void readFields(DataInput in) throws IOException {
-    this.m = in.readDouble();
-    this.convergenceDelta = in.readDouble();
+    this.t1 = in.readDouble();
+    this.t2 = in.readDouble();
+    this.t3 = in.readDouble();
+    this.t4 = in.readDouble();
   }
   
 }

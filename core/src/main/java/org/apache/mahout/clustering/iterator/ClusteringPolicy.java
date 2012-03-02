@@ -14,19 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.mahout.clustering;
+package org.apache.mahout.clustering.iterator;
+
+import java.util.List;
 
 import org.apache.hadoop.io.Writable;
+import org.apache.mahout.clustering.Cluster;
+import org.apache.mahout.clustering.classify.ClusterClassifier;
 import org.apache.mahout.math.Vector;
 
 /**
  * A ClusteringPolicy captures the semantics of assignment of points to clusters
  * 
  */
-public interface ClusteringPolicy extends Writable{
+public interface ClusteringPolicy extends Writable {
   
   /**
-   * Return the index of the most appropriate model
+   * Return a vector of weights for each of the models given those probabilities
    * 
    * @param probabilities
    *          a Vector of pdfs
@@ -41,5 +45,15 @@ public interface ClusteringPolicy extends Writable{
    *          a ClusterClassifier
    */
   void update(ClusterClassifier posterior);
+  
+  /**
+   * @param data
+   *          a data Vector
+   * @param models
+   *          a list of Cluster models
+   * @return a Vector of probabilities that the data is described by each of the
+   *         models
+   */
+  Vector classify(Vector data, List<Cluster> models);
   
 }

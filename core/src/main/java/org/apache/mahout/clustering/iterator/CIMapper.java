@@ -1,4 +1,4 @@
-package org.apache.mahout.clustering;
+package org.apache.mahout.clustering.iterator;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -8,6 +8,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.mahout.clustering.Cluster;
+import org.apache.mahout.clustering.classify.ClusterClassifier;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.Vector.Element;
 import org.apache.mahout.math.VectorWritable;
@@ -28,9 +30,9 @@ public class CIMapper extends Mapper<WritableComparable<?>,VectorWritable,IntWri
   @Override
   protected void setup(Context context) throws IOException, InterruptedException {
     String priorClustersPath = context.getConfiguration().get(ClusterIterator.PRIOR_PATH_KEY);
-    String policyPath = context.getConfiguration().get(ClusterIterator.POLICY_PATH_KEY);
-    classifier = ClusterIterator.readClassifier(new Path(priorClustersPath));
-    policy = ClusterIterator.readPolicy(new Path(policyPath));
+    classifier = new ClusterClassifier();
+    classifier.readFromSeqFiles(new Path(priorClustersPath));
+    policy = classifier.getPolicy();
     policy.update(classifier);
     super.setup(context);
   }

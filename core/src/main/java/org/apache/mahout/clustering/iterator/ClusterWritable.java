@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.mahout.clustering;
+package org.apache.mahout.clustering.iterator;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -22,23 +22,17 @@ import java.io.IOException;
 
 import org.apache.hadoop.io.Writable;
 import org.apache.mahout.classifier.sgd.PolymorphicWritable;
+import org.apache.mahout.clustering.Cluster;
 
-public class ClusteringPolicyWritable implements Writable {
+public class ClusterWritable implements Writable {
   
-  private ClusteringPolicy value;
+  private Cluster value;
   
-  public ClusteringPolicyWritable(ClusteringPolicy policy) {
-    this.value = policy;
-  }
-
-  public ClusteringPolicyWritable() {
-  }
-
-  public ClusteringPolicy getValue() {
+  public Cluster getValue() {
     return value;
   }
   
-  public void setValue(ClusteringPolicy value) {
+  public void setValue(Cluster value) {
     this.value = value;
   }
   
@@ -49,7 +43,7 @@ public class ClusteringPolicyWritable implements Writable {
   
   @Override
   public void readFields(DataInput in) throws IOException {
-    value = PolymorphicWritable.read(in, ClusteringPolicy.class);
+    value = PolymorphicWritable.read(in, Cluster.class);
   }
   
 }

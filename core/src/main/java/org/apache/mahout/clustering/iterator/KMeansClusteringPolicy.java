@@ -14,14 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.mahout.clustering;
+package org.apache.mahout.clustering.iterator;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.List;
 
+import org.apache.mahout.clustering.Cluster;
+import org.apache.mahout.clustering.classify.ClusterClassifier;
+import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.SequentialAccessSparseVector;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.VectorWritable;
+import org.apache.mahout.math.function.TimesFunction;
 
 /**
  * This is a simple maximum likelihood clustering policy, suitable for k-means
@@ -39,7 +45,7 @@ public class KMeansClusteringPolicy implements ClusteringPolicy {
     this.convergenceDelta = convergenceDelta;
   }
 
-  private double convergenceDelta;
+  private double convergenceDelta = 0.05;
   
   /* (non-Javadoc)
    * @see org.apache.mahout.clustering.ClusteringPolicy#select(org.apache.mahout.math.Vector)
@@ -58,6 +64,16 @@ public class KMeansClusteringPolicy implements ClusteringPolicy {
   @Override
   public void update(ClusterClassifier posterior) {
     // nothing to do here
+  }
+
+  @Override
+  public Vector classify(Vector data, List<Cluster> models) {
+    int i = 0;
+    Vector pdfs = new DenseVector(models.size());
+    for (Cluster model : models) {
+      pdfs.set(i++, model.pdf(new VectorWritable(data)));
+    }
+    return pdfs.assign(new TimesFunction(), 1.0 / pdfs.zSum());
   }
 
   /* (non-Javadoc)
