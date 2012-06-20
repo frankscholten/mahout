@@ -66,3 +66,6 @@ trainclassifier = deprecated : Try the new vector backed naivebayes classifier s
 testclassifier = deprecated : Try the new vector backed naivebayes classifier see examples/bin/classify-20newsgroups.sh 
 lda = deprecated : Try the new Collapsed Variation Bayes LDA, try bin/mahout cvb or bin/mahout cvb0_local
 ldatopics = deprecated : Try the new Collapsed Variation Bayes LDA, try bin/mahout cvb or bin/mahout cvb0_local
+
+#Example
+org.apache.mahout.clustering.streaming.StreamingKMeansDriver = stream : Streaming kmeans

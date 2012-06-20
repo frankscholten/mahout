@@ -39,7 +39,7 @@ if [ ! -e $MAHOUT ]; then
   exit 1
 fi
 
-algorithm=( kmeans fuzzykmeans dirichlet minhash)
+algorithm=( kmeans stream fuzzykmeans dirichlet minhash)
 if [ -n "$1" ]; then
   choice=$1
 else
@@ -48,6 +48,7 @@ else
   echo "2. ${algorithm[1]} clustering"
   echo "3. ${algorithm[2]} clustering"
   echo "4. ${algorithm[3]} clustering"
+  echo "5. ${algorithm[4]} clustering"
   read -p "Enter your choice : " choice
 fi
 
@@ -105,6 +106,26 @@ if [ "x$clustertype" == "xkmeans" ]; then
     -dm org.apache.mahout.common.distance.CosineDistanceMeasure \
     -x 10 -k 20 -ow --clustering \
   && \
+  $MAHOUT clusterdump \
+    -i ${WORK_DIR}/reuters-kmeans/clusters-*-final \
+    -o ${WORK_DIR}/reuters-kmeans/clusterdump \
+    -d ${WORK_DIR}/reuters-out-seqdir-sparse-kmeans/dictionary.file-0 \
+    -dt sequencefile -b 100 -n 20 --evaluate -dm org.apache.mahout.common.distance.CosineDistanceMeasure -sp 0 \
+    --pointsDir ${WORK_DIR}/reuters-kmeans/clusteredPoints \
+    && \
+  cat ${WORK_DIR}/reuters-kmeans/clusterdump
+elif [ "x$clustertype" == "xstream" ]; then
+  $MAHOUT seq2sparse \
+    -i ${WORK_DIR}/reuters-out-seqdir/ \
+    -o ${WORK_DIR}/reuters-out-seqdir-sparse-kmeans --maxDFPercent 85 --namedVector \
+  && \
+  $MAHOUT stream \
+    -i ${WORK_DIR}/reuters-out-seqdir-sparse-kmeans/tfidf-vectors/ \
+    -c ${WORK_DIR}/reuters-kmeans-clusters \
+    -o ${WORK_DIR}/reuters-kmeans \
+    -dm org.apache.mahout.common.distance.CosineDistanceMeasure \
+    -k 20 -ow --clustering \
+  &&
   $MAHOUT clusterdump \
     -i ${WORK_DIR}/reuters-kmeans/clusters-*-final \
     -o ${WORK_DIR}/reuters-kmeans/clusterdump \
