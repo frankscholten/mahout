@@ -166,6 +166,11 @@
       <artifactId>slf4j-jcl</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>knn</groupId>
+      <artifactId>knn</artifactId>
+      <version>0.1</version>
+    </dependency>
   </dependencies>
 
   <profiles>
