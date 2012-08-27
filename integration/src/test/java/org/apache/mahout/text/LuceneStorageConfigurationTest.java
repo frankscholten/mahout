@@ -2,6 +2,7 @@ package org.apache.mahout.text;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.lucene.search.BooleanQuery;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -23,6 +24,7 @@ public class LuceneStorageConfigurationTest {
     LuceneStorageConfiguration deserializedConf = new LuceneStorageConfiguration(serializedConf);
 
     assertEquals(luceneStorageConf, deserializedConf);
+    assertEquals(Integer.MAX_VALUE, BooleanQuery.getMaxClauseCount());
   }
   
   @Test(expected = IllegalArgumentException.class)

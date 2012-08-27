@@ -30,6 +30,7 @@ import org.apache.lucene.document.FieldSelector;
 import org.apache.lucene.document.SetBasedFieldSelector;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.mahout.common.Pair;
@@ -91,6 +92,8 @@ public class LuceneStorageConfiguration implements Writable {
 
     setQuery(DEFAULT_QUERY);
     setMaxHits(DEFAULT_MAX_HITS);
+
+    BooleanQuery.setMaxClauseCount(Integer.MAX_VALUE);
   }
 
   public LuceneStorageConfiguration() {
