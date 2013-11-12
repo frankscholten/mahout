@@ -102,10 +102,10 @@ public class LuceneSegmentRecordReader extends RecordReader<Text, NullWritable> 
     //searcher.close();
   }
 
-  private void checkIfFieldExists(IndexSearcher searcher, String idField) throws IOException {
-    CollectionStatistics idFieldStatistics = searcher.collectionStatistics(idField);
+  private void checkIfFieldExists(IndexSearcher searcher, String field) throws IOException {
+    CollectionStatistics idFieldStatistics = searcher.collectionStatistics(field);
     if (idFieldStatistics.docCount() == 0) {
-      throw new IllegalArgumentException("Field '" + idField + "' does not exist in the index");
+      throw new IllegalArgumentException("Field '" + field + "' does not exist in the index");
     }
   }
 }
