@@ -24,7 +24,6 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.lucene.index.SegmentInfoPerCommit;
 import org.apache.lucene.index.SegmentReader;
-import org.apache.lucene.search.CollectionStatistics;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
@@ -59,9 +58,9 @@ public class LuceneSegmentRecordReader extends RecordReader<Text, NullWritable> 
 
     IndexSearcher searcher = new IndexSearcher(segmentReader);
     String idField = lucene2SeqConfiguration.getIdField();
-    checkIfFieldExists(searcher, idField);
+    LuceneIndexHelper.fieldShouldExistInIndex(searcher, idField);
     for (String field : lucene2SeqConfiguration.getFields()) {
-        checkIfFieldExists(searcher, field);
+        LuceneIndexHelper.fieldShouldExistInIndex(searcher, field);
     }
 
     Weight weight = lucene2SeqConfiguration.getQuery().createWeight(searcher);
@@ -100,12 +99,5 @@ public class LuceneSegmentRecordReader extends RecordReader<Text, NullWritable> 
   public void close() throws IOException {
     segmentReader.close();
     //searcher.close();
-  }
-
-  private void checkIfFieldExists(IndexSearcher searcher, String field) throws IOException {
-    CollectionStatistics idFieldStatistics = searcher.collectionStatistics(field);
-    if (idFieldStatistics.docCount() == 0) {
-      throw new IllegalArgumentException("Field '" + field + "' does not exist in the index");
-    }
   }
 }

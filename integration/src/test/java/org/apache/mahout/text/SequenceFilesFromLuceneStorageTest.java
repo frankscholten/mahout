@@ -143,7 +143,7 @@ public class SequenceFilesFromLuceneStorageTest extends AbstractLuceneStorageTes
       asList(getIndexPath1()),
       seqFilesOutputPath,
       SingleFieldDocument.ID_FIELD,
-      asList(UnstoredFieldsDocument.FIELD, UnstoredFieldsDocument.UNSTORED_FIELD));
+      asList(SingleFieldDocument.FIELD));
 
     Query query = new TermQuery(new Term(lucene2SeqConf.getFields().get(0), "599"));
 
@@ -200,5 +200,31 @@ public class SequenceFilesFromLuceneStorageTest extends AbstractLuceneStorageTes
     assertNumericFieldEquals(doc1, iterator.next());
     assertNumericFieldEquals(doc2, iterator.next());
     assertNumericFieldEquals(doc3, iterator.next());
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testNonExistingIdField() throws IOException {
+    commitDocuments(getDirectory(getIndexPath1AsFile()), docs.subList(0, 500));
+
+    lucene2SeqConf = new LuceneStorageConfiguration(configuration,
+        asList(getIndexPath1()),
+        seqFilesOutputPath,
+        "nonExistingField",
+        asList(SingleFieldDocument.FIELD));
+
+    lucene2Seq.run(lucene2SeqConf);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testNonExistingField() throws IOException {
+    commitDocuments(getDirectory(getIndexPath1AsFile()), docs.subList(0, 500));
+
+    lucene2SeqConf = new LuceneStorageConfiguration(configuration,
+        asList(getIndexPath1()),
+        seqFilesOutputPath,
+        SingleFieldDocument.ID_FIELD,
+        asList(SingleFieldDocument.FIELD, "nonExistingField"));
+
+    lucene2Seq.run(lucene2SeqConf);
   }
 }

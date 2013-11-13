@@ -62,6 +62,12 @@ public class SequenceFilesFromLuceneStorage {
       Directory directory = FSDirectory.open(new File(indexPath.toUri().getPath()));
       IndexReader reader = DirectoryReader.open(directory);
       IndexSearcher searcher = new IndexSearcher(reader);
+
+      LuceneIndexHelper.fieldShouldExistInIndex(searcher, lucene2seqConf.getIdField());
+      for (String field : lucene2seqConf.getFields()) {
+        LuceneIndexHelper.fieldShouldExistInIndex(searcher, field);
+      }
+
       Configuration configuration = lucene2seqConf.getConfiguration();
       FileSystem fileSystem = FileSystem.get(configuration);
       Path sequenceFilePath = new Path(lucene2seqConf.getSequenceFilesOutputPath(), indexPath.getName());
