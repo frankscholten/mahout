@@ -276,4 +276,15 @@ public abstract class FeatureVectorEncoder {
   protected static byte[] bytesForString(String x) {
     return x == null ? EMPTY_ARRAY : x.getBytes(Charsets.UTF_8);
   }
+
+  /**
+   * This marker class is only to be used with the @Feature annotation, to
+   * indicate that <b>no encoder is configured</b>.
+   */
+  public abstract class NoneEncoder extends FeatureVectorEncoder {
+    @SuppressWarnings("unused")
+    protected NoneEncoder(String name) {
+      super("none");
+    }
+  }
 }
