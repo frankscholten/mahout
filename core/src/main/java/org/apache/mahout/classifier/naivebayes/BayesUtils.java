@@ -55,47 +55,6 @@ public final class BayesUtils {
 
   private BayesUtils() {}
 
-  public static NaiveBayesModel readModelFromDir(Path base, Configuration conf) {
-
-    float alphaI = conf.getFloat(ThetaMapper.ALPHA_I, 1.0f);
-
-    // read feature sums and label sums
-    Vector scoresPerLabel = null;
-    Vector scoresPerFeature = null;
-    for (Pair<Text,VectorWritable> record : new SequenceFileDirIterable<Text, VectorWritable>(
-        new Path(base, TrainNaiveBayesJob.WEIGHTS), PathType.LIST, PathFilters.partFilter(), conf)) {
-      String key = record.getFirst().toString();
-      VectorWritable value = record.getSecond();
-      if (key.equals(TrainNaiveBayesJob.WEIGHTS_PER_FEATURE)) {
-        scoresPerFeature = value.get();
-      } else if (key.equals(TrainNaiveBayesJob.WEIGHTS_PER_LABEL)) {
-        scoresPerLabel = value.get();
-      }
-    }
-
-    Preconditions.checkNotNull(scoresPerFeature);
-    Preconditions.checkNotNull(scoresPerLabel);
-
-    Matrix scoresPerLabelAndFeature = new SparseMatrix(scoresPerLabel.size(), scoresPerFeature.size());
-    for (Pair<IntWritable,VectorWritable> entry : new SequenceFileDirIterable<IntWritable,VectorWritable>(
-        new Path(base, TrainNaiveBayesJob.SUMMED_OBSERVATIONS), PathType.LIST, PathFilters.partFilter(), conf)) {
-      scoresPerLabelAndFeature.assignRow(entry.getFirst().get(), entry.getSecond().get());
-    }
-
-    Vector perlabelThetaNormalizer = scoresPerLabel.like();
-    /* for (Pair<Text,VectorWritable> entry : new SequenceFileDirIterable<Text,VectorWritable>(
-        new Path(base, TrainNaiveBayesJob.THETAS), PathType.LIST, PathFilters.partFilter(), conf)) {
-      if (entry.getFirst().toString().equals(TrainNaiveBayesJob.LABEL_THETA_NORMALIZER)) {
-        perlabelThetaNormalizer = entry.getSecond().get();
-      }
-    }
-
-    Preconditions.checkNotNull(perlabelThetaNormalizer);
-    */
-    return new NaiveBayesModel(scoresPerLabelAndFeature, scoresPerFeature, scoresPerLabel, perlabelThetaNormalizer,
-        alphaI);
-  }
-
   /** Write the list of labels into a map file */
   public static int writeLabelIndex(Configuration conf, Iterable<String> labels, Path indexPath)
     throws IOException {

@@ -21,13 +21,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.mahout.classifier.naivebayes.AbstractNaiveBayesClassifier;
-import org.apache.mahout.classifier.naivebayes.ComplementaryNaiveBayesClassifier;
-import org.apache.mahout.classifier.naivebayes.NaiveBayesModel;
-import org.apache.mahout.classifier.naivebayes.StandardNaiveBayesClassifier;
+import org.apache.mahout.classifier.naivebayes.*;
 import org.apache.mahout.common.HadoopUtil;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
+import org.apache.mahout.classifier.naivebayes.NaiveBayesHdfsFileModelRepository;
 
 import java.io.IOException;
 import java.util.regex.Pattern;
@@ -48,7 +46,8 @@ public class BayesTestMapper extends Mapper<Text, VectorWritable, Text, VectorWr
     super.setup(context);
     Configuration conf = context.getConfiguration();
     Path modelPath = HadoopUtil.getSingleCachedFile(conf);
-    NaiveBayesModel model = NaiveBayesModel.materialize(modelPath, conf);
+    NaiveBayesHdfsFileModelRepository repository = new NaiveBayesHdfsFileModelRepository(modelPath, conf);
+    NaiveBayesModel model = repository.readModel();
     boolean compl = Boolean.parseBoolean(conf.get(TestNaiveBayesDriver.COMPLEMENTARY));
     if (compl) {
       classifier = new ComplementaryNaiveBayesClassifier(model);

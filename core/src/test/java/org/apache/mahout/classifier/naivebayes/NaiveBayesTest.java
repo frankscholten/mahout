@@ -32,6 +32,7 @@ import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
 import org.apache.mahout.math.hadoop.MathHelper;
+import org.apache.mahout.model.ModelRepository;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -91,7 +92,8 @@ public class NaiveBayesTest extends MahoutTestCase {
     trainNaiveBayes.run(new String[] { "--input", inputFile.getAbsolutePath(), "--output", outputDir.getAbsolutePath(),
         "-el", "--tempDir", tempDir.getAbsolutePath() });
 
-    NaiveBayesModel naiveBayesModel = NaiveBayesModel.materialize(new Path(outputDir.getAbsolutePath()), conf);
+    ModelRepository<NaiveBayesModel> repository = new NaiveBayesHdfsFileModelRepository(new Path(outputDir.getAbsolutePath()), conf);
+    NaiveBayesModel naiveBayesModel = repository.readModel();
 
     AbstractVectorClassifier classifier = new StandardNaiveBayesClassifier(naiveBayesModel);
 
@@ -111,7 +113,8 @@ public class NaiveBayesTest extends MahoutTestCase {
         "-el", "--trainComplementary",
         "--tempDir", tempDir.getAbsolutePath() });
 
-    NaiveBayesModel naiveBayesModel = NaiveBayesModel.materialize(new Path(outputDir.getAbsolutePath()), conf);
+    ModelRepository<NaiveBayesModel> repository = new NaiveBayesHdfsFileModelRepository(new Path(outputDir.getAbsolutePath()), conf);
+    NaiveBayesModel naiveBayesModel = repository.readModel();
 
     AbstractVectorClassifier classifier = new ComplementaryNaiveBayesClassifier(naiveBayesModel);
 

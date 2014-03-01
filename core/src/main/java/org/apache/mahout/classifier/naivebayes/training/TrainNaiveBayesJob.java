@@ -30,6 +30,8 @@ import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.mahout.classifier.naivebayes.BayesUtils;
+import org.apache.mahout.classifier.naivebayes.NaiveBayesHdfsFileModelRepository;
+import org.apache.mahout.classifier.naivebayes.NaiveBayesHdfsFolderModelRepository;
 import org.apache.mahout.classifier.naivebayes.NaiveBayesModel;
 import org.apache.mahout.common.AbstractJob;
 import org.apache.mahout.common.HadoopUtil;
@@ -159,9 +161,14 @@ public final class TrainNaiveBayesJob extends AbstractJob {
 
     //validate our model and then write it out to the official output
     getConf().setFloat(ThetaMapper.ALPHA_I, alphaI);
-    NaiveBayesModel naiveBayesModel = BayesUtils.readModelFromDir(getTempPath(), getConf());
+
+    NaiveBayesHdfsFolderModelRepository folderRepository = new NaiveBayesHdfsFolderModelRepository(getTempPath(), getConf());
+    NaiveBayesModel naiveBayesModel = folderRepository.readModel();
+
     naiveBayesModel.validate();
-    naiveBayesModel.serialize(getOutputPath(), getConf());
+
+    NaiveBayesHdfsFileModelRepository fileRepository = new NaiveBayesHdfsFileModelRepository(getOutputPath(), getConf());
+    fileRepository.writeModel(naiveBayesModel);
 
     return 0;
   }

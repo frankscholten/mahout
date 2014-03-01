@@ -17,30 +17,18 @@
 
 package org.apache.mahout.classifier.naivebayes;
 
-import java.io.IOException;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Matrix;
-import org.apache.mahout.math.SparseRowMatrix;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.VectorWritable;
-
 import com.google.common.base.Preconditions;
-import com.google.common.io.Closeables;
 
 /** NaiveBayesModel holds the weight Matrix, the feature and label sums and the weight normalizer vectors.*/
 public class NaiveBayesModel {
 
-  private final Vector weightsPerLabel;
-  private final Vector perlabelThetaNormalizer;
+  final Vector weightsPerLabel;
+  final Vector perlabelThetaNormalizer;
   //  private final double minThetaNormalizer;
-  private final Vector weightsPerFeature;
-  private final Matrix weightsPerLabelAndFeature;
+  final Vector weightsPerFeature;
+  final Matrix weightsPerLabelAndFeature;
   private final float alphaI;
   private final double numFeatures;
   private final double totalWeightSum;
@@ -96,51 +84,6 @@ public class NaiveBayesModel {
     return weightsPerLabel.like();
   }
 
-  public static NaiveBayesModel materialize(Path output, Configuration conf) throws IOException {
-    FileSystem fs = output.getFileSystem(conf);
-
-    Vector weightsPerLabel = null;
-    Vector perLabelThetaNormalizer = null;
-    Vector weightsPerFeature = null;
-    Matrix weightsPerLabelAndFeature;
-    float alphaI;
-
-    FSDataInputStream in = fs.open(new Path(output, "naiveBayesModel.bin"));
-    try {
-      alphaI = in.readFloat();
-      weightsPerFeature = VectorWritable.readVector(in);
-      weightsPerLabel = new DenseVector(VectorWritable.readVector(in));
-      perLabelThetaNormalizer = new DenseVector(VectorWritable.readVector(in));
-
-      weightsPerLabelAndFeature = new SparseRowMatrix(weightsPerLabel.size(), weightsPerFeature.size());
-      for (int label = 0; label < weightsPerLabelAndFeature.numRows(); label++) {
-        weightsPerLabelAndFeature.assignRow(label, VectorWritable.readVector(in));
-      }
-    } finally {
-      Closeables.close(in, true);
-    }
-    NaiveBayesModel model = new NaiveBayesModel(weightsPerLabelAndFeature, weightsPerFeature, weightsPerLabel,
-        perLabelThetaNormalizer, alphaI);
-    model.validate();
-    return model;
-  }
-
-  public void serialize(Path output, Configuration conf) throws IOException {
-    FileSystem fs = output.getFileSystem(conf);
-    FSDataOutputStream out = fs.create(new Path(output, "naiveBayesModel.bin"));
-    try {
-      out.writeFloat(alphaI);
-      VectorWritable.writeVector(out, weightsPerFeature);
-      VectorWritable.writeVector(out, weightsPerLabel);
-      VectorWritable.writeVector(out, perlabelThetaNormalizer);
-      for (int row = 0; row < weightsPerLabelAndFeature.numRows(); row++) {
-        VectorWritable.writeVector(out, weightsPerLabelAndFeature.viewRow(row));
-      }
-    } finally {
-      Closeables.close(out, false);
-    }
-  }
-  
   public void validate() {
     Preconditions.checkState(alphaI > 0, "alphaI has to be greater than 0!");
     Preconditions.checkArgument(numFeatures > 0, "the vocab count has to be greater than 0!");

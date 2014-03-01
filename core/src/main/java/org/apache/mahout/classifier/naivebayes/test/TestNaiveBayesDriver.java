@@ -34,11 +34,7 @@ import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.mahout.classifier.ClassifierResult;
 import org.apache.mahout.classifier.ResultAnalyzer;
-import org.apache.mahout.classifier.naivebayes.AbstractNaiveBayesClassifier;
-import org.apache.mahout.classifier.naivebayes.BayesUtils;
-import org.apache.mahout.classifier.naivebayes.ComplementaryNaiveBayesClassifier;
-import org.apache.mahout.classifier.naivebayes.NaiveBayesModel;
-import org.apache.mahout.classifier.naivebayes.StandardNaiveBayesClassifier;
+import org.apache.mahout.classifier.naivebayes.*;
 import org.apache.mahout.common.AbstractJob;
 import org.apache.mahout.common.HadoopUtil;
 import org.apache.mahout.common.Pair;
@@ -48,6 +44,8 @@ import org.apache.mahout.common.iterator.sequencefile.PathType;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileDirIterable;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
+import org.apache.mahout.classifier.naivebayes.NaiveBayesHdfsFileModelRepository;
+import org.apache.mahout.model.ModelRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,7 +85,8 @@ public class TestNaiveBayesDriver extends AbstractJob {
     boolean sequential = hasOption("runSequential");
     if (sequential) {
       FileSystem fs = FileSystem.get(getConf());
-      NaiveBayesModel model = NaiveBayesModel.materialize(new Path(getOption("model")), getConf());
+      ModelRepository<NaiveBayesModel> repository = new NaiveBayesHdfsFileModelRepository(new Path(getOption("model")), getConf());
+      NaiveBayesModel model = repository.readModel();
       AbstractNaiveBayesClassifier classifier;
       if (complementary) {
         classifier = new ComplementaryNaiveBayesClassifier(model);
